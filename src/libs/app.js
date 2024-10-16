@@ -23,13 +23,13 @@ class App {
  async startServer() {
   try {
    await this.loadSettings();
-   await this.checkDatabase();
    const header = Common.appName + ' ver. ' + Common.appVersion;
    const dashes = '='.repeat(header.length);
    Common.addLog(dashes);
    Common.addLog(header);
    Common.addLog(dashes);
    Common.addLog('');
+   await this.checkDatabase();
    this.webServer = new WebServer();
    await this.webServer.run();
   } catch (ex) {
