@@ -47,8 +47,8 @@ if ! rpm -q mariadb-server mariadb-client >/dev/null 2>&1; then
  curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | bash
  dnf -y install mariadb-server mariadb-client
 fi
-git clone https://github.com/libersoft-org/yellow-server.git
-cd yellow-server/src/
+git clone https://github.com/libersoft-org/yellow-server-module-messages.git
+cd yellow-server-module-messages/src/
 ```
 
 ## 3. Configuration
