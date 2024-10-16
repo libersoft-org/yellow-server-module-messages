@@ -66,10 +66,11 @@ class App {
    Common.addLog('Settings file "' + Common.settingsFile + '" already exists. If you need to replace it with default one, delete the old one first.', 2);
    process.exit(1);
   } else {
-   var settings = {
+   let settings = {
     web: {
      http_port: 25001,
-     allow_network: false,
+     allow_network: false
+    },
     database: {
      host: '127.0.0.1',
      port: 3306,
