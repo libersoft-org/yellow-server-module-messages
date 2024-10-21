@@ -74,8 +74,8 @@ class App {
     database: {
      host: '127.0.0.1',
      port: 3306,
-     user: 'your_username',
-     password: 'your_password',
+     user: 'messages',
+     password: 'password',
      name: 'yellow_module_messages'
     },
     other: {
