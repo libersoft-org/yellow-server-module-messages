@@ -1,4 +1,3 @@
-import os from 'os';
 import Data from './data.js';
 import { Common } from './common.js';
 
@@ -19,28 +18,23 @@ class API {
   if (!Common.isValidJSON(json)) return { error: 902, message: 'Invalid JSON command' };
   const req = JSON.parse(json);
   let resp = {};
+
   if (req.requestID) resp.requestID = req.requestID;
-  if (!req.command) return { ...resp, error: 999, message: 'Command not set' };
-  const command = this.commands[req.command];
-  if (!command) return { ...resp, error: 903, message: 'Unknown command' };
+  if (req.wsGuid) resp.wsGuid = req.wsGuid;
+
+  if (!req.data?.command) return { ...resp, error: 999, message: 'Command not set' };
+  const command_fn = this.commands[req.command];
+  if (!command_fn) return { ...resp, error: 903, message: 'Unknown command' };
+
   const context = { ws };
-  if (command.reqAdminSession) {
-   if (!req.sessionID) return { ...resp, error: 995, message: 'Admin session is missing' };
-   if (!(await this.data.adminCheckSession(req.sessionID))) return { ...resp, error: 997, message: 'Invalid admin session ID' };
-   if (await this.data.adminSessionExpired(req.sessionID)) return { ...resp, error: 994, message: 'Admin session is expired' };
-   await this.data.adminUpdateSessionTime(req.sessionID);
-   const adminID = await this.data.getAdminIDBySession(req.sessionID);
-   if (adminID) context.adminID = adminID;
-  } else if (command.reqUserSession) {
+
+  if (command_fn.reqUserSession) {
    if (!req.sessionID) return { ...resp, error: 996, message: 'User session is missing' };
-   if (!(await this.data.userCheckSession(req.sessionID))) return { ...resp, error: 998, message: 'Invalid user session ID' };
-   if (await this.data.userSessionExpired(req.sessionID)) return { ...resp, error: 994, message: 'User session is expired' };
-   await this.data.userUpdateSessionTime(req.sessionID);
-   const userID = await this.data.getUserIDBySession(req.sessionID);
-   if (userID) context.userID = userID;
+   if (req.userID) context.userID = req.userID;
   }
+
   if (req.params) context.params = req.params;
-  //console.log('SENDING CONTEXT:', context);
+
   let method_result = await apiMethod.method.call(this, context);
   return { ...resp, ...method_result };
  }
