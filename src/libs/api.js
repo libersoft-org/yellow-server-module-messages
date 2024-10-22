@@ -12,10 +12,10 @@ class API {
    subscribe: { method: this.userSubscribe },
    unsubscribe: { method: this.userUnsubscribe },
 
-   send: { method: this.userSend, reqUserSession: true },
-   seen: { method: this.userSeen, reqUserSession: true },
+   message_send: { method: this.userSend, reqUserSession: true },
+   message_seen: { method: this.userSeen, reqUserSession: true },
+   messages_list: { method: this.userMessagesList, reqUserSession: true },
    conversations_list: { method: this.userConversationsList, reqUserSession: true },
-   messages_list: { method: this.userMessagesList, reqUserSession: true }
   };
  }
 

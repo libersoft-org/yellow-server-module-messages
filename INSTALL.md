@@ -64,9 +64,9 @@ mariadb -u root -p
 ... and create a new user
 
 ```sql
-CREATE USER 'user_name'@'localhost' IDENTIFIED BY 'password';
-CREATE DATABASE yellow_module_messages;
-GRANT ALL ON yellow_module_messages.* TO 'user_name'@'localhost';
+CREATE USER 'yellow_module_org_libersoft_messages'@'localhost' IDENTIFIED BY 'password';
+CREATE DATABASE yellow_module_org_libersoft_messages;
+GRANT ALL ON yellow_module_org_libersoft_messages.* TO 'yellow_module_org_libersoft_messages'@'localhost';
 ```
 
 ### Create a new module settings file using:

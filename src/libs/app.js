@@ -74,9 +74,9 @@ class App {
     database: {
      host: '127.0.0.1',
      port: 3306,
-     user: 'messages',
+     user: 'yellow_module_org_libersoft_messages',
      password: 'password',
-     name: 'yellow_module_messages'
+     name: 'yellow_module_org_libersoft_messages'
     },
     other: {
      log_file: 'module-messages.log',
