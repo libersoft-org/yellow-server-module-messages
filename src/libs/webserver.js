@@ -9,8 +9,8 @@ class WebServer {
    this.api = new API(this);
    await this.startServer();
   } catch (ex) {
-   Common.addLog('Cannot start web server.', 2);
-   Common.addLog(ex, 2);
+   Log.info('Cannot start web server.', 2);
+   Log.info(ex, 2);
   }
  }
 
@@ -21,9 +21,9 @@ class WebServer {
     websocket: this.getWebSocket(),
     port: Common.settings.web.http_port
    });
-   Common.addLog('HTTP server is running on port: ' + Common.settings.web.http_port);
+   Log.info('HTTP server is running on port: ' + Common.settings.web.http_port);
   } catch (ex) {
-   Common.addLog('Error: ' + ex.message, 2);
+   Log.info('Error: ' + ex.message, 2);
    process.exit(1);
   }
  }
@@ -39,7 +39,7 @@ class WebServer {
      break;
     }
    }
-   Common.addLog(req.method + ' request from: ' + clientIP + ', URL: ' + req.url);
+   Log.info(req.method + ' request from: ' + clientIP + ', URL: ' + req.url);
    return new Response('<h1>404 Not Found</h1>', { status: 404, headers: { 'Content-Type': 'text/html' } });
   };
  }
@@ -48,18 +48,18 @@ class WebServer {
   const api = this.api;
   return {
    message: async (ws, message) => {
-    Common.addLog('WebSocket message from: ', ws.remoteAddress, ', message: ', message);
+    Log.info('WebSocket message from: ', ws.remoteAddress, ', message: ', message);
     const res = JSON.stringify(await api.processAPI(ws, message));
-    Common.addLog('WebSocket message to: ' + ws.remoteAddress + ', message: ' + res);
+    Log.info('WebSocket message to: ' + ws.remoteAddress + ', message: ' + res);
     ws.send(res);
    },
    open: ws => {
     this.wsClients.set(ws, { subscriptions: new Set() });
-    Common.addLog('WebSocket connected: ' + ws.remoteAddress);
+    Log.info('WebSocket connected: ' + ws.remoteAddress);
    },
    close: (ws, code, message) => {
     this.wsClients.delete(ws);
-    Common.addLog('WebSocket disconnected: ' + ws.remoteAddress + ', code: ' + code + (message ? ', message: ' + message : ''));
+    Log.info('WebSocket disconnected: ' + ws.remoteAddress + ', code: ' + code + (message ? ', message: ' + message : ''));
    },
    drain: ws => {
     // the socket is ready to receive more data

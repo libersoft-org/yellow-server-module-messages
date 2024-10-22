@@ -117,7 +117,7 @@ class API {
 
   clientData.userID = c.userID;
   clientData.subscriptions.add(c.params.event);
-  Common.addLog('Client ' + c.wsGuid + ' subscribed to event: ' + c.params.event);
+  Log.info('Client ' + c.wsGuid + ' subscribed to event: ' + c.params.event);
 
   return { error: 0, message: 'Event subscribed' };
  }

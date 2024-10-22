@@ -20,10 +20,10 @@ class Database {
   try {
    this.conn = await mariaDB.createConnection(this.connectionConfig);
    this.connecting = false;
-   Common.addLog('Connected to the database');
+   Log.info('Connected to the database');
   } catch (ex) {
    this.connecting = false;
-   Common.addLog('Error while connecting to database: ' + ex.message, 2);
+   Log.info('Error while connecting to database: ' + ex.message, 2);
    setTimeout(() => this.connect(), 2000);
   }
  }
@@ -33,7 +33,7 @@ class Database {
    try {
     await this.conn.end();
    } catch (ex) {
-    Common.addLog('Error while disconnecting: ' + ex.message, 2);
+    Log.info('Error while disconnecting: ' + ex.message, 2);
    }
   }
   this.conn = null;
@@ -47,13 +47,13 @@ class Database {
     try {
      await this.conn.ping();
     } catch (err) {
-     Common.addLog('Connection lost: ' + err.message, 2);
+     Log.info('Connection lost: ' + err.message, 2);
      await this.reconnect();
     }
    }
    return await callback(this.conn);
   } catch (ex) {
-   Common.addLog(ex.message, 2);
+   Log.info(ex.message, 2);
    return null;
   }
  }
