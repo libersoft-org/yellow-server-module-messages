@@ -1,13 +1,15 @@
 import WebServer from './webserver.js';
 import Data from './data.js';
-import { Common } from './common.js';
+import { Info } from './info.js';
+import { Log } from 'yellow-server-common';
+
 
 class App {
  async run() {
   const args = process.argv.slice(2);
   switch (args.length) {
    case 0:
-    await this.startServer();
+    await this.runAPI();
     break;
    case 1:
     if (args[0] === '--create-settings') await this.createSettings();
@@ -20,10 +22,9 @@ class App {
   }
  }
 
- async startServer() {
-  try {
+ async runAPI() {
    await this.loadSettings();
-   const header = Common.appName + ' ver. ' + Common.appVersion;
+   const header = Info.appName + ' ver. ' + Info.appVersion;
    const dashes = '='.repeat(header.length);
    Log.info(dashes);
    Log.info(header);
@@ -32,38 +33,35 @@ class App {
    await this.checkDatabase();
    this.webServer = new WebServer();
    await this.webServer.run();
-  } catch (ex) {
-   Log.info(ex);
-  }
  }
 
  getHelp() {
   Log.info('Command line arguments:');
   Log.info('');
   Log.info('--help - to see this help');
-  Log.info('--create-settings - to create a default settings file named "' + Common.settingsFile + '"');
+  Log.info('--create-settings - to create a default settings file named "' + Info.settingsFile + '"');
   Log.info('--create-database - to create a tables in database defined in the settings file');
  }
 
  async loadSettings() {
-  const file = Bun.file(Common.settingsFile);
+  const file = Bun.file(Info.settingsFile);
   if (await file.exists()) {
    try {
-    Common.settings = await file.json();
+    Info.settings = await file.json();
    } catch {
-    Log.info('Settings file "' + Common.settingsFile + '" has an invalid format.', 2);
+    Log.info('Settings file "' + Info.settingsFile + '" has an invalid format.', 2);
     process.exit(1);
    }
   } else {
-   Log.info('Settings file "' + Common.settingsFile + '" not found. Please run this application again using: "./start.sh --create-settings"', 2);
+   Log.info('Settings file "' + Info.settingsFile + '" not found. Please run this application again using: "./start.sh --create-settings"', 2);
    process.exit(1);
   }
  }
 
  async createSettings() {
-  const file = Bun.file(Common.settingsFile);
+  const file = Bun.file(Info.settingsFile);
   if (await file.exists()) {
-   Log.info('Settings file "' + Common.settingsFile + '" already exists. If you need to replace it with default one, delete the old one first.', 2);
+   Log.info('Settings file "' + Info.settingsFile + '" already exists. If you need to replace it with default one, delete the old one first.', 2);
    process.exit(1);
   } else {
    let settings = {
@@ -83,7 +81,7 @@ class App {
      log_to_file: true
     }
    };
-   await Bun.write(Common.settingsFile, JSON.stringify(settings, null, 1));
+   await Bun.write(Info.settingsFile, JSON.stringify(settings, null, 1));
    Log.info('Settings file was created sucessfully.');
   }
  }

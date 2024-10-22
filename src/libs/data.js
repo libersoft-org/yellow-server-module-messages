@@ -1,9 +1,9 @@
-import Database from './database.js';
-import { Common } from './common.js';
+import { Database, Log } from 'yellow-server-common';
+import { Info } from './info.js';
 
 class Data {
  constructor() {
-  this.db = new Database();
+  this.db = new Database(Info.settings.database);
  }
 
  async databaseExists() {

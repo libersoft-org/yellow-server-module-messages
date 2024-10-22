@@ -1,33 +1,23 @@
 import path from 'path';
 import API from './api.js';
-import { Common } from './common.js';
 import { Log } from 'yellow-server-common';
+import { Info } from './info.js';
 
 
 class WebServer {
  async run() {
-  try {
-   this.wsClients = new Map();
-   this.api = new API(this);
-   await this.startServer();
-  } catch (ex) {
-   Log.info('Cannot start web server.', 2);
-   Log.info(ex, 2);
-  }
+  this.wsClients = new Map();
+  this.api = new API(this);
+  await this.startServer();
  }
 
  async startServer() {
-  try {
    Bun.serve({
     fetch: this.getFetch(),
     websocket: this.getWebSocket(),
-    port: Common.settings.web.http_port
+    port: Info.settings.web.http_port
    });
-   Log.info('HTTP server is running on port: ' + Common.settings.web.http_port);
-  } catch (ex) {
-   Log.info('Error: ' + ex.message, 2);
-   process.exit(1);
-  }
+   Log.info('HTTP server is running on port: ' + Info.settings.web.http_port);
  }
 
  getFetch() {

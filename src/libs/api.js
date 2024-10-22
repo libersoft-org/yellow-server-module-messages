@@ -1,5 +1,4 @@
 import Data from './data.js';
-import { Common } from './common.js';
 
 class API {
  constructor(webServer) {
@@ -20,15 +19,22 @@ class API {
  }
 
  async processAPI(ws, json) {
-  if (!Common.isValidJSON(json)) return { error: 902, message: 'Invalid JSON command' };
-  const req = JSON.parse(json);
+  let req;
+  try {
+   req = JSON.parse(json);
+  } catch (ex) {
+   return {error: 902, message: 'Invalid JSON command'};
+  }
+
   let resp = {};
 
   if (req.requestID) resp.requestID = req.requestID;
   if (req.wsGuid) resp.wsGuid = req.wsGuid;
 
-  if (!req.data?.command) return { ...resp, error: 999, message: 'Command not set' };
-  const command_fn = this.commands[req.command];
+  let command = req.data?.command;
+
+  if (!command) return { ...resp, error: 999, message: 'Command not set' };
+  const command_fn = this.commands[command];
   if (!command_fn) return { ...resp, error: 903, message: 'Unknown command' };
 
   const context = { ws };
@@ -40,7 +46,7 @@ class API {
 
   if (req.params) context.params = req.params;
 
-  let method_result = await apiMethod.method.call(this, context);
+  let method_result = await command_fn.method.call(this, context);
   return { ...resp, ...method_result };
  }
 
@@ -139,10 +145,6 @@ class API {
   if (!clientData.subscriptions?.has(c.params.event)) return { error: 5, message: 'Client is not subscribed to this event' };
   clientData.subscriptions?.delete(c.params.event);
   return { error: 0, message: 'Event unsubscribed' };
- }
-
- getUUID() {
-  return crypto.randomUUID();
  }
 }
 
