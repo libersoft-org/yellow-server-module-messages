@@ -1,6 +1,8 @@
 import path from 'path';
 import API from './api.js';
 import { Common } from './common.js';
+import { Log } from 'yellow-server-common';
+
 
 class WebServer {
  async run() {

@@ -1,6 +1,7 @@
 {
  "name": "yellow-module-messages",
  "dependencies": {
-  "mariadb": "*"
+  "mariadb": "*",
+  "yellow-server-common": "https://github.com/libersoft-org/yellow-server-common"
  }
 }
