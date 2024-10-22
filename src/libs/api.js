@@ -125,9 +125,7 @@ class API {
  notifySubscriber(userID, event, data) {
   for (const [wsGuid, clientData] of this.clients) {
    if (clientData.userID === userID && clientData.subscriptions.has(event)) {
-    const res = JSON.stringify({ event, data });
-    Common.addLog('WebSocket event to: ' + ws.remoteAddress + ', message: ' + res);
-    ws.send(res);
+    send('notify', {wsGuid, event});
    }
   }
  }
@@ -136,7 +134,7 @@ class API {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.event) return { error: 2, message: 'Event parameter is missing' };
   if (!this.allowedEvents.includes(c.params.event)) return { error: 3, message: 'Unsupported event name' };
-  const clientData = this.webServer.wsClients.get(c.ws);
+  const clientData = this.clients.get(c.wsGuid);
   if (!clientData) return { error: 4, message: 'Client not found' };
   if (!clientData.subscriptions?.has(c.params.event)) return { error: 5, message: 'Client is not subscribed to this event' };
   clientData.subscriptions?.delete(c.params.event);
