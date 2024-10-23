@@ -99,6 +99,7 @@ class App {
   const data = new Data();
   await data.createDB();
   Log.info('Database creation completed.');
+  await data.close();
   process.exit(1);
  }
 }

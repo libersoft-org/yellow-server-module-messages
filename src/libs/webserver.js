@@ -32,6 +32,9 @@ class WebServer {
     }
    }
    Log.info(req.method + ' request from: ' + clientIP + ', URL: ' + req.url);
+   if (req.url === '/health') {
+    return new Response('<h1>Yellow Server</h1>', { headers: { 'Content-Type': 'text/html' } });
+   }
    return new Response('<h1>404 Not Found</h1>', { status: 404, headers: { 'Content-Type': 'text/html' } });
   };
  }
