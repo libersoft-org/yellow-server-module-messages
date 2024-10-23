@@ -31,10 +31,9 @@ class WebServer {
      break;
     }
    }
-   Log.info(req.method + ' request from: ' + clientIP + ', URL: ' + req.url);
-   if (req.url === '/health') {
-    return new Response('<h1>Yellow Server</h1>', { headers: { 'Content-Type': 'text/html' } });
-   }
+   Log.info(req.method + ' request from: ' + clientIP + ', URL: ', req.url);
+   const url = new URL(req.url);
+   if (url.pathname === "/health") return new Response("OK!");
    return new Response('<h1>404 Not Found</h1>', { status: 404, headers: { 'Content-Type': 'text/html' } });
   };
  }
