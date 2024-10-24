@@ -45,6 +45,7 @@ class API {
   if (command_fn.reqUserSession) {
    if (!req.sessionID) return { ...resp, error: 996, message: 'User session is missing' };
    if (req.userID) context.userID = req.userID;
+   if (req.userAddress) context.userAddress = req.userAddress;
   }
 
   if (req.params) context.params = req.params;
@@ -101,8 +102,7 @@ class API {
  }
 
  async userConversationsList(c) {
-  const address = await getUserAddress(c.userID);
-  const conversations = await this.data.userListConversations(c.userID, address);
+  const conversations = await this.data.userListConversations(c.userID, c.userAddress);
   if (!conversations) return { error: 1, message: 'No conversations found' };
   return { error: 0, data: { conversations } };
  }

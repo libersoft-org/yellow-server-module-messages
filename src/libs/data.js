@@ -76,6 +76,7 @@ class Data extends DataGeneric {
    FROM last_messages
    LEFT JOIN unread_counts ON unread_counts.other_address = last_messages.other_address
    WHERE last_messages.row_number = 1
+   GROUP BY last_messages.other_address
    ORDER BY last_messages.last_message_date DESC;
   `,
    [userAddress, userID, userAddress, userAddress,userID]
