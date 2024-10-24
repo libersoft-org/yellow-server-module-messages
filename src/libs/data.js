@@ -29,26 +29,20 @@ class Data extends DataGeneric {
   await this.db.query('UPDATE messages SET seen = CURRENT_TIMESTAMP WHERE uid = ?', [uid]);
  }
 
- async userListConversations(userID) {
+ async userListConversations(userID, userAddress) {
   const res = await this.db.query(
    `
-   WITH user_info AS (
-    SELECT u.id AS user_id, CONCAT(u.username, '@', d.name) AS address
-    FROM users u
-    JOIN domains d ON u.id_domains = d.id
-    WHERE u.id = ?
-   ),
    user_messages AS (
     SELECT
      m.*,
      CASE
-      WHEN m.address_from = (SELECT address FROM user_info) THEN m.address_to
+      WHEN m.address_from = ? THEN m.address_to
       ELSE m.address_from
      END AS other_address
     FROM messages m
     WHERE m.id_users = ?
-    AND (m.address_from = (SELECT address FROM user_info)
-        OR m.address_to = (SELECT address FROM user_info))
+    AND (m.address_from = ?
+        OR m.address_to = ?)
    ),
    last_messages AS (
     SELECT
@@ -64,9 +58,9 @@ class Data extends DataGeneric {
      COUNT(*) AS unread_count
     FROM messages m
     WHERE
-     m.address_to = (SELECT address FROM user_info)
+     m.address_to = ?
      AND m.seen IS NULL
-     AND m.address_from != (SELECT address FROM user_info)
+     AND m.address_from != ?
      AND m.id_users = ?
     GROUP BY m.address_from
    ),
@@ -77,7 +71,6 @@ class Data extends DataGeneric {
    )
    SELECT
     lm.other_address AS address,
-    ua.visible_name,
     lm.last_message_text,
     lm.last_message_date,
     COALESCE(uc.unread_count, 0) AS unread_count
@@ -87,7 +80,7 @@ class Data extends DataGeneric {
    WHERE lm.rn = 1
    ORDER BY lm.last_message_date DESC;
   `,
-   [userID, userID, userID]
+   [userAddress, userID, userAddress, userAddress, userAddress, userAddress, userID, userID]
   );
   return res.length > 0 ? res : false;
  }
