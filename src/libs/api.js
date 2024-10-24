@@ -29,16 +29,18 @@ class API {
 
   Log.debug('API request: ' + JSON.stringify(req));
 
-  let resp = {};
+  let resp = {type: 'response'};
 
   if (req.requestID) resp.requestID = req.requestID;
   if (req.wsGuid) resp.wsGuid = req.wsGuid;
 
   let command = req.data?.command;
+  Log.debug('API command: ' + command);
 
   if (!command) return { ...resp, error: 999, message: 'Command not set' };
   const command_fn = this.commands[command];
-  if (!command_fn) return { ...resp, error: 903, message: 'Unknown command' };
+  Log.debug('API command_fn: ' + command_fn);
+  if (!command_fn) return { ...resp, error: 903, message: 'Unknown API command' };
 
   const context = { ws };
 
