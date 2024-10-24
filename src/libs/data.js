@@ -33,53 +33,26 @@ class Data extends DataGeneric {
   const res = await this.db.query(
    `
 
-   WITH user_messages AS (
-    SELECT
-     messages.*,
-     CASE
-      WHEN messages.address_from = ? THEN messages.address_to
-      ELSE messages.address_from
-     END AS other_address
-    FROM
-    WHERE messages.id_users = ?
-   ),
+SELECT
+  conv.other_address,
+  m.message,
+  m.created,
+  conv.unread_count
+FROM (
+  SELECT
+    IF(address_from = ?, address_to, address_from) AS other_address,
+    MAX(id) AS last_message_id,
+    SUM(CASE WHEN seen IS NULL AND address_to = ? THEN 1 ELSE 0 END) AS unread_count
+  FROM messages
+  WHERE ? IN (address_from, address_to)
+    AND (id_users = ? OR id_users IS NULL)
+  GROUP BY other_address
+) AS conv
+JOIN messages m ON m.id = conv.last_message_id
+WHERE (m.id_users = ? OR m.id_users IS NULL);
 
-   last_messages AS (
-    SELECT
-     user_messages.other_address,
-     user_messages.message AS last_message_text,
-     user_messages.created AS last_message_date,
-     ROW_NUMBER() OVER (PARTITION BY user_messages.other_address ORDER BY user_messages.created DESC) AS row_number
-    FROM user_messages
-   ),
-
-   unread_counts AS (
-    SELECT
-     messages.address_from AS other_address,
-     COUNT(*) AS unread_count
-    FROM messages
-    WHERE
-     messages.address_to = ?
-     AND messages.seen IS NULL
-     AND messages.address_from != ?
-     AND messages.id_users = ?
-    GROUP BY messages.address_from
-   ),
-
-   SELECT
-
-    lm.other_address AS address,
-    lm.last_message_text,
-    lm.last_message_date,
-    COALESCE(uc.unread_count, 0) AS unread_count
-
-   FROM last_messages
-   LEFT JOIN unread_counts ON unread_counts.other_address = last_messages.other_address
-   WHERE last_messages.row_number = 1
-   GROUP BY last_messages.other_address
-   ORDER BY last_messages.last_message_date DESC;
   `,
-   [userAddress, userID, userAddress, userAddress,userID]
+   [userAddress, userAddress, userAddress, userID, userID]
   );
   return res.length > 0 ? res : false;
  }

@@ -50,7 +50,7 @@ class API {
    if (req.userAddress) context.userAddress = req.userAddress;
   }
 
-  if (req.params) context.params = req.params;
+  if (req.data?.params) context.params = req.data.params;
 
   let method_result = await command_fn.method.call(this, context);
   return { ...resp, ...method_result };
