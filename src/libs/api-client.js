@@ -1,9 +1,11 @@
 import Data from './data.js';
 import { Log } from "yellow-server-common";
+import { ApiCore } from './api-core.js';
 
-class API {
+class ApiClient {
  constructor(webServer) {
   this.webServer = webServer;
+  this.apiCore = new ApiCore();
   this.data = new Data();
   this.allowedEvents = ['new_message', 'seen_message'];
   this.clients = new Map();
@@ -20,6 +22,18 @@ class API {
  }
 
  async processAPI(ws, json) {
+
+
+  /* fixme, this is a temporary solution */
+  if (this.apiCore.ws)
+  {
+   if (this.apiCore.ws !== ws && this.apiCore.ws != undefined)
+    Log.error('duplicate connections');
+   }
+   this.apiCore.ws = ws;
+  }
+
+
   let req;
   try {
    req = JSON.parse(json);
@@ -46,6 +60,7 @@ class API {
 
   if (command_fn.reqUserSession) {
    if (!req.sessionID) return { ...resp, error: 996, message: 'User session is missing' };
+   if (req.wsGuid) context.wsGuid = req.wsGuid;
    if (req.userID) context.userID = req.userID;
    if (req.userAddress) context.userAddress = req.userAddress;
   }
@@ -63,12 +78,14 @@ class API {
   if (!usernameTo || !domainTo) return { error: 4, message: 'Invalid username format' };
   usernameTo = usernameTo.toLowerCase();
   domainTo = domainTo.toLowerCase();
-  const domainToID = await this.data.getDomainIDByName(domainTo);
+
+  const domainToID = await this.core.api.getDomainIDByName(domainTo);
+
   if (!domainToID) return { error: 5, message: 'Domain name not found on this server' };
-  const userToID = await this.data.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
+  const userToID = await this.core.api.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
   if (!userToID) return { error: 6, message: 'User name not found on this server' };
-  const userFromInfo = await this.data.userGetUserInfo(c.userID);
-  const userFromDomain = await this.data.getDomainNameByID(userFromInfo.id_domains);
+  const userFromInfo = await this.core.api.userGetUserInfo(c.userID);
+  const userFromDomain = await this.core.api.getDomainNameByID(userFromInfo.id_domains);
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
@@ -109,14 +126,10 @@ class API {
   return { error: 0, data: { conversations } };
  }
 
- async getUserAddress(userID) {
-
- }
-
  async userMessagesList(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
-  const messages = await this.data.userListMessages(c.userID, c.params.address, c.params?.count, c.params?.lastID);
+  const messages = await this.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.count, c.params?.lastID);
   return { error: 0, data: { messages } };
  }
 
@@ -158,4 +171,4 @@ class API {
  }
 }
 
-export default API;
+export default ApiClient;

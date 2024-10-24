@@ -1,5 +1,5 @@
 import path from 'path';
-import API from './api.js';
+import ApiClient from './api-client.js';
 import { Log } from 'yellow-server-common';
 import { Info } from './info.js';
 
@@ -7,7 +7,7 @@ import { Info } from './info.js';
 class WebServer {
  async run() {
   this.wsClients = new Map();
-  this.api = new API(this);
+  this.api = new ApiClient(this);
   await this.startServer();
  }
 

@@ -59,95 +59,86 @@ WHERE (m.id_users = ? OR m.id_users IS NULL);
   return res.length > 0 ? res : false;
  }
 
- async userListMessages(userID, address, count = 10, lastID = 0) {
+ async userListMessages(userID, address_my, address_other, count = 10, lastID = 0) {
+
+  /* todo
+  prevCount
+  lastID
+  nextCount
+   */
+
   if (lastID === 'unseen') {
+
    // find the first unseen message ID:
    const res1 = await this.db.query(
     `
-    WITH my_email AS (
-     SELECT CONCAT(u.username, '@', d.name) AS email
-      FROM users u
-      JOIN domains d ON u.id_domains = d.id
-      WHERE u.id = ?
-     )
      SELECT id
      FROM messages
      WHERE id_users = ?
-       AND address_to = (SELECT email FROM my_email)
+       AND address_to = ?
        AND seen IS NULL
      ORDER BY id ASC LIMIT 1
     `,
-    [userID, userID]
+    [userID, address_my]
    );
    let first_unseen_ID = res1.length > 0 ? res1[0].id : null;
+
    if (first_unseen_ID === null) {
     // nothing unseen, use the last message ID
     const res2 = await this.db.query(
      `
-     WITH my_email AS (
-      SELECT CONCAT(u.username, '@', d.name) AS email
-      FROM users u
-      JOIN domains d ON u.id_domains = d.id
-      WHERE u.id = ?
-     )
      SELECT id
      FROM messages
      WHERE id_users = ?
-     AND address_to = (SELECT email FROM my_email)
+     AND address_to = ?
      ORDER BY id DESC LIMIT 1
      `,
-     [userID, userID]
+     [userID, address_my]
     );
     first_unseen_ID = res2.length > 0 ? res2[0].id : 0;
    }
+
    if (first_unseen_ID === null) {
     return [];
    }
+
    // go three messages back for instant context
    const res3 = await this.db.query(
     `
-     WITH my_email AS (
-    SELECT CONCAT(u.username, '@', d.name) AS email
-    FROM users u
-    JOIN domains d ON u.id_domains = d.id
-    WHERE u.id = ?
-  )
   SELECT id, uid, address_from, address_to, message, seen, created
   FROM messages
   WHERE id_users = ?
     AND (
-      (address_from = ? AND address_to = (SELECT email FROM my_email))
+      (address_from = ? AND address_to = ?)
       OR
-      (address_from = (SELECT email FROM my_email) AND address_to = ?)
+      (address_from = ? AND address_to = ?)
     )
     AND id < ?
-  ORDER BY id DESC LIMIT 3
+  ORDER BY id DESC LIMIT 30
     `,
-    [userID, userID, address, address, first_unseen_ID]
+    [userID, address_other, address_my, address_my, address_other, first_unseen_ID]
    );
    lastID = res3.length > 0 ? res3.at(-1).id : first_unseen_ID;
   }
+
   const res4 = await this.db.query(
    `
- WITH my_email AS (
-    SELECT CONCAT(u.username, '@', d.name) AS email
-    FROM users u
-    JOIN domains d ON u.id_domains = d.id
-    WHERE u.id = ?
-  )
+
+
+
   SELECT id, uid, address_from, address_to, message, seen, created
   FROM messages
   WHERE id_users = ?
   AND (
-    (address_from = (SELECT email FROM my_email) AND address_to = ?)
+    (address_from = ? AND address_to = ?)
     OR
-    (address_from = ? AND address_to = (SELECT email FROM my_email))
+    (address_from = ? AND address_to = ?)
   )
   AND id > ?
   ORDER BY id DESC
   LIMIT ?
   `,
-   [userID, userID, address, address, lastID, count]
+   [userID, address_my, address_other, address_other, address_my, lastID, count]
   );
   return res4.map(i => {
    return this.addSeenFlagToSelfMessages(i, userID);
