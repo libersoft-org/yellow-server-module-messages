@@ -32,55 +32,53 @@ class Data extends DataGeneric {
  async userListConversations(userID, userAddress) {
   const res = await this.db.query(
    `
-   user_messages AS (
+
+   WITH user_messages AS (
     SELECT
-     m.*,
+     messages.*,
      CASE
-      WHEN m.address_from = ? THEN m.address_to
-      ELSE m.address_from
+      WHEN messages.address_from = ? THEN messages.address_to
+      ELSE messages.address_from
      END AS other_address
-    FROM messages m
-    WHERE m.id_users = ?
-    AND (m.address_from = ?
-        OR m.address_to = ?)
+    FROM
+    WHERE messages.id_users = ?
    ),
+
    last_messages AS (
     SELECT
-     um.other_address,
-     um.message AS last_message_text,
-     um.created AS last_message_date,
-     ROW_NUMBER() OVER (PARTITION BY um.other_address ORDER BY um.created DESC) AS rn
-    FROM user_messages um
+     user_messages.other_address,
+     user_messages.message AS last_message_text,
+     user_messages.created AS last_message_date,
+     ROW_NUMBER() OVER (PARTITION BY user_messages.other_address ORDER BY user_messages.created DESC) AS row_number
+    FROM user_messages
    ),
+
    unread_counts AS (
     SELECT
-     m.address_from AS other_address,
+     messages.address_from AS other_address,
      COUNT(*) AS unread_count
-    FROM messages m
+    FROM messages
     WHERE
-     m.address_to = ?
-     AND m.seen IS NULL
-     AND m.address_from != ?
-     AND m.id_users = ?
-    GROUP BY m.address_from
+     messages.address_to = ?
+     AND messages.seen IS NULL
+     AND messages.address_from != ?
+     AND messages.id_users = ?
+    GROUP BY messages.address_from
    ),
-   user_addresses AS (
-    SELECT CONCAT(u.username, '@', d.name) AS address, u.visible_name
-    FROM users u
-    JOIN domains d ON u.id_domains = d.id
-   )
+
    SELECT
+
     lm.other_address AS address,
     lm.last_message_text,
     lm.last_message_date,
     COALESCE(uc.unread_count, 0) AS unread_count
-   FROM last_messages lm
-   LEFT JOIN user_addresses ua ON ua.address = lm.other_address
-   LEFT JOIN unread_counts uc ON uc.other_address = lm.other_address
-   WHERE lm.rn = 1
-   ORDER BY lm.last_message_date DESC;
+
+   FROM last_messages
+   LEFT JOIN unread_counts ON unread_counts.other_address = last_messages.other_address
+   WHERE last_messages.row_number = 1
+   ORDER BY last_messages.last_message_date DESC;
   `,
-   [userAddress, userID, userAddress, userAddress, userAddress, userAddress, userID, userID]
+   [userAddress, userID, userAddress, userAddress,userID]
   );
   return res.length > 0 ? res : false;
  }

@@ -1,4 +1,5 @@
 import Data from './data.js';
+import { Log } from "yellow-server-common";
 
 class API {
  constructor(webServer) {
@@ -25,6 +26,8 @@ class API {
   } catch (ex) {
    return {error: 902, message: 'Invalid JSON command'};
   }
+
+  Log.debug('API request: ' + JSON.stringify(req));
 
   let resp = {};
 
@@ -98,9 +101,14 @@ class API {
  }
 
  async userConversationsList(c) {
-  const conversations = await this.data.userListConversations(c.userID);
+  const address = await getUserAddress(c.userID);
+  const conversations = await this.data.userListConversations(c.userID, address);
   if (!conversations) return { error: 1, message: 'No conversations found' };
   return { error: 0, data: { conversations } };
+ }
+
+ async getUserAddress(userID) {
+
  }
 
  async userMessagesList(c) {
