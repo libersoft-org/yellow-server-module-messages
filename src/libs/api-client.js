@@ -5,7 +5,7 @@ import { ApiCore } from './api-core.js';
 class ApiClient {
  constructor(webServer) {
   this.webServer = webServer;
-  this.apiCore = new ApiCore();
+  this.core = new ApiCore();
   this.data = new Data();
   this.allowedEvents = ['new_message', 'seen_message'];
   this.clients = new Map();
@@ -21,19 +21,7 @@ class ApiClient {
   };
  }
 
- async processAPI(ws, json) {
-
-
-  /* fixme, this is a temporary solution */
-  if (this.apiCore.ws)
-  {
-   if (this.apiCore.ws !== ws && this.apiCore.ws != undefined)
-    Log.error('duplicate connections');
-   }
-   this.apiCore.ws = ws;
-  }
-
-
+ async processWsMessage(ws, json) {
   let req;
   try {
    req = JSON.parse(json);
@@ -41,7 +29,41 @@ class ApiClient {
    return {error: 902, message: 'Invalid JSON command'};
   }
 
-  Log.debug('API request: ' + JSON.stringify(req));
+  if (req.type === 'response') {
+   let requestID = req.requestID;
+   let cb = this.core.requests[requestID];
+   Log.debug('result from core for requestID:', requestID, req.result);
+   if (cb) {
+    cb(req.result);
+    delete this.core.requests[requestID];
+   }
+   else
+   {
+    Log.warning('No callback for the response:', req);
+   }
+   return;
+  }
+  else if (req.type === 'request') {
+   return await this.processAPI(ws, req);
+  }
+  else
+  {
+   Log.warning('Unknown message type:', req);
+  }
+ }
+
+ async processAPI(ws, req) {
+
+
+  /* fixme, this is a temporary solution */
+  if (this.core.ws && this.core.ws != ws)
+  {
+   throw('APICore is already in use');
+   process.exit(1);
+  }
+  this.core.ws = ws;
+
+  //Log.debug('API request: ' + JSON.stringify(req));
 
   let resp = {type: 'response'};
 
@@ -53,16 +75,18 @@ class ApiClient {
 
   if (!command) return { ...resp, error: 999, message: 'Command not set' };
   const command_fn = this.commands[command];
-  Log.debug('API command_fn: ' + command_fn);
+  //Log.debug('API command_fn: ' + command_fn);
   if (!command_fn) return { ...resp, error: 903, message: 'Unknown API command' };
 
   const context = { ws };
 
-  if (command_fn.reqUserSession) {
+  if (req.wsGuid) context.wsGuid = req.wsGuid;
+  if (req.userID) context.userID = req.userID;
+  if (req.userAddress) context.userAddress = req.userAddress;
+
+  if (command_fn.reqUserSession)
+  {
    if (!req.sessionID) return { ...resp, error: 996, message: 'User session is missing' };
-   if (req.wsGuid) context.wsGuid = req.wsGuid;
-   if (req.userID) context.userID = req.userID;
-   if (req.userAddress) context.userAddress = req.userAddress;
   }
 
   if (req.data?.params) context.params = req.data.params;
@@ -141,10 +165,10 @@ class ApiClient {
   let clientData = this.clients.get(c.wsGuid);
   if (!clientData) {
    clientData = {subscriptions: new Set()};
+   clientData.userID = c.userID;
    this.clients.set(c.wsGuid, clientData);
   }
 
-  clientData.userID = c.userID;
   clientData.subscriptions.add(c.params.event);
   Log.info('Client ' + c.wsGuid + ' subscribed to event: ' + c.params.event);
 
@@ -152,9 +176,12 @@ class ApiClient {
  }
 
  notifySubscriber(userID, event, data) {
+  Log.debug('notifySubscriber', userID, event, data);
+  //Log.debug('clients', this.clients);
   for (const [wsGuid, clientData] of this.clients) {
    if (clientData.userID === userID && clientData.subscriptions.has(event)) {
-    send('notify', {wsGuid, event});
+    //Log.debug('notifySubscriber wsGuid', wsGuid, event, data);
+    this.core.send({type: 'notify', wsGuid, event, data});
    }
   }
  }

@@ -43,9 +43,11 @@ class WebServer {
   return {
    message: async (ws, message) => {
     Log.info('WebSocket message from: ', ws.remoteAddress, ', message: ', message);
-    const res = JSON.stringify(await api.processAPI(ws, message));
-    Log.info('WebSocket message to: ' + ws.remoteAddress + ', message: ' + res);
-    ws.send(res);
+    const res = await api.processWsMessage(ws, message);
+    if (res) {
+     Log.info('WebSocket message to: ', ws.remoteAddress, ', message: ', res);
+     ws.send(JSON.stringify(res));
+    }
    },
    open: ws => {
     this.wsClients.set(ws, { subscriptions: new Set() });

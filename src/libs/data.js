@@ -36,9 +36,9 @@ class Data extends DataGeneric {
    `
 
 SELECT
-  conv.other_address,
-  m.message,
-  m.created,
+  conv.other_address as address,
+  m.message as last_message_text,
+  m.created as last_message_date,
   conv.unread_count
 FROM (
   SELECT
