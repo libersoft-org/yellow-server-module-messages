@@ -30,6 +30,8 @@ class Data extends DataGeneric {
  }
 
  async userListConversations(userID, userAddress) {
+  Log.debug('userListConversations', userID, userAddress);
+
   const res = await this.db.query(
    `
 
