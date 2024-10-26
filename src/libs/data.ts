@@ -86,7 +86,7 @@ class Data extends DataGeneric {
       `,
     [userAddress, userAddress, userAddress, userID, userID]
   );
-  return res.length > 0 ? res : false;
+  return res;
  }
 
  async userListMessages(

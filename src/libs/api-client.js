@@ -146,7 +146,6 @@ class ApiClient {
 
  async userConversationsList(c) {
   const conversations = await this.data.userListConversations(c.userID, c.userAddress);
-  if (!conversations) return { error: 1, message: 'No conversations found' };
   return { error: 0, data: { conversations } };
  }
 
