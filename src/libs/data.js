@@ -18,6 +18,7 @@ class Data extends DataGeneric {
  }
 
  async userSendMessage(userID, uid, address_from, address_to, message) {
+  Log.debug('userSendMessage', userID, uid, address_from, address_to, message);
   return await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message) VALUES (?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message]);
  }
 
@@ -45,14 +46,14 @@ FROM (
   SELECT
     IF(address_from = ?, address_to, address_from) AS other_address,
     MAX(id) AS last_message_id,
-    SUM(CASE WHEN seen IS NULL AND address_to = ? THEN 1 ELSE 0 END) AS unread_count
+    (SELECT COUNT(*) FROM messages WHERE address_to != ? AND seen IS NULL) AS unread_count
   FROM messages
   WHERE ? IN (address_from, address_to)
-    AND (id_users = ? OR id_users IS NULL)
+    AND id_users = ?
   GROUP BY other_address
 ) AS conv
 JOIN messages m ON m.id = conv.last_message_id
-WHERE (m.id_users = ? OR m.id_users IS NULL);
+WHERE m.id_users = ?;
 
   `,
    [userAddress, userAddress, userAddress, userID, userID]
