@@ -130,8 +130,12 @@ class ApiClient {
  async userSeen(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
+  if (!c.userID) throw new Error('User ID is missing');
   const res = await this.data.userGetMessage(c.userID, c.params.uid);
   if (!res) return { error: 3, message: 'Wrong message ID' };
+
+  Log.debug('res....seen:', res);
+
   if (res.seen) return { error: 4, message: 'Seen flag was already set' };
   await this.data.userMessageSeen(c.params.uid);
   const res2 = await this.data.userGetMessage(c.userID, c.params.uid);
