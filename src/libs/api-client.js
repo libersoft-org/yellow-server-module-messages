@@ -1,4 +1,4 @@
-import Data from './data.js';
+import Data from './data';
 import { Log } from "yellow-server-common";
 import { ApiCore } from './api-core.js';
 
