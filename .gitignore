@@ -2,3 +2,4 @@ src/node_modules/
 src/settings.json
 src/*.log
 .secret_git
+.idea
