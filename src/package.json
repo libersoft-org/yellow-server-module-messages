@@ -1,6 +1,7 @@
 {
  "name": "yellow-module-messages",
  "dependencies": {
+  "async-mutex": "^0.5.0",
   "mariadb": "*",
   "yellow-server-common": "https://github.com/libersoft-org/yellow-server-common"
  }

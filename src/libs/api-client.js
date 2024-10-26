@@ -1,14 +1,17 @@
 import Data from './data';
 import { Log } from "yellow-server-common";
 import { ApiCore } from './api-core.js';
+import { Mutex } from 'async-mutex';
+
 
 class ApiClient {
  constructor(webServer) {
   this.webServer = webServer;
   this.core = new ApiCore();
   this.data = new Data();
-  this.allowedEvents = ['new_message', 'seen_message'];
+  this.allowedEvents = ['new_message', 'seen_message', 'seen_inbox_message'];
   this.clients = new Map();
+  this.userSeenMutex = new Mutex();
   this.commands = {
 
    subscribe: { method: this.userSubscribe },
@@ -127,24 +130,36 @@ class ApiClient {
   return { error: 0, message: 'Message sent', uid };
  }
 
- async userSeen(c) {
+  async userSeen(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
   if (!c.userID) throw new Error('User ID is missing');
-  const res = await this.data.userGetMessage(c.userID, c.params.uid);
-  if (!res) return { error: 3, message: 'Wrong message ID' };
 
-  Log.debug('res....seen:', res);
+  let result = await this.userSeenMutex.runExclusive(async () => {
+   const res = await this.data.userGetMessage(c.userID, c.params.uid);
+   if (!res) return { error: 3, message: 'Wrong message ID' };
+   Log.debug('res....seen:', res);
+   if (res.seen) return { error: 4, message: 'Seen flag was already set' };
+   await this.data.userMessageSeen(c.params.uid);
+   return true;
+  });
+  if (result !== true) return result;
 
-  if (res.seen) return { error: 4, message: 'Seen flag was already set' };
-  await this.data.userMessageSeen(c.params.uid);
   const res2 = await this.data.userGetMessage(c.userID, c.params.uid);
   const [username, domain] = res2.address_from.split('@');
   const userFromID = await this.core.api.getUserIDByUsernameAndDomainName(username, domain);
+
   this.notifySubscriber(userFromID, 'seen_message', {
    uid: c.params.uid,
    seen: res2.seen
   });
+
+  this.notifySubscriber(c.userID, 'seen_inbox_message', {
+   uid: c.params.uid,
+   address_from: res2.address_from,
+   seen: res2.seen
+  });
+
   return { error: 0, message: 'Seen flag set successfully' };
  }
 
@@ -180,10 +195,10 @@ class ApiClient {
 
  notifySubscriber(userID, event, data) {
   Log.debug('notifySubscriber', userID, event, data);
-  //Log.debug('clients', this.clients);
+  Log.debug('clients', this.clients);
   for (const [wsGuid, clientData] of this.clients) {
    if (clientData.userID === userID && clientData.subscriptions.has(event)) {
-    //Log.debug('notifySubscriber wsGuid', wsGuid, event, data);
+    Log.debug('notifySubscriber wsGuid', wsGuid, event, data);
     this.core.send({type: 'notify', wsGuid, event, data});
    }
   }
