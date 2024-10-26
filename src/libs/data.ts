@@ -75,7 +75,7 @@ class Data extends DataGeneric {
         SELECT
           IF(address_from = ?, address_to, address_from) AS other_address,
           MAX(id) AS last_message_id,
-          (SELECT COUNT(*) FROM messages WHERE address_to != ? AND seen IS NULL) AS unread_count
+          (SELECT COUNT(*) FROM messages WHERE address_to = ? AND address_from = other_address AND id_users = ? AND seen IS NULL) AS unread_count
         FROM messages
         WHERE ? IN (address_from, address_to)
           AND id_users = ?
@@ -84,7 +84,7 @@ class Data extends DataGeneric {
       JOIN messages m ON m.id = conv.last_message_id
       WHERE m.id_users = ?;
       `,
-    [userAddress, userAddress, userAddress, userID, userID]
+    [userAddress, userAddress, userID, userAddress, userID, userID]
   );
   return res;
  }
