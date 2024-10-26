@@ -136,7 +136,7 @@ class ApiClient {
   await this.data.userMessageSeen(c.params.uid);
   const res2 = await this.data.userGetMessage(c.userID, c.params.uid);
   const [username, domain] = res2.address_from.split('@');
-  const userFromID = await this.core.api.getUserIDByUsernameAndDomain(username, domain);
+  const userFromID = await this.core.api.getUserIDByUsernameAndDomainName(username, domain);
   this.notifySubscriber(userFromID, 'seen_message', {
    uid: c.params.uid,
    seen: res2.seen
