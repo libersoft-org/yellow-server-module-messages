@@ -58,8 +58,8 @@ class ApiClient {
   /* fixme, this is a temporary solution */
   if (this.core.ws && this.core.ws != ws)
   {
-   throw('APICore is already in use');
-   process.exit(1);
+   console.info('APICore was already in use');
+   //process.exit(1);
   }
   this.core.ws = ws;
 
