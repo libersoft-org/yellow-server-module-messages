@@ -6,7 +6,6 @@ import { Info } from './info.js';
 
 class WebServer {
  async run() {
-  this.wsClients = new Map();
   this.api = new ApiClient(this);
   await this.startServer();
  }
@@ -45,16 +44,14 @@ class WebServer {
     Log.info('WebSocket message from: ', ws.remoteAddress, ', message: ', message);
     const res = await api.processWsMessage(ws, message);
     if (res) {
-     Log.info('WebSocket message to: ', ws.remoteAddress, ', message: ', res);
+     Log.info('WebSocket response to: ', ws.remoteAddress, ', message: ', res);
      ws.send(JSON.stringify(res));
     }
    },
    open: ws => {
-    this.wsClients.set(ws, { subscriptions: new Set() });
     Log.info('WebSocket connected: ' + ws.remoteAddress);
    },
    close: (ws, code, message) => {
-    this.wsClients.delete(ws);
     Log.info('WebSocket disconnected: ' + ws.remoteAddress + ', code: ' + code + (message ? ', message: ' + message : ''));
    },
    drain: ws => {

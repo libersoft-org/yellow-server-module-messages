@@ -8,10 +8,8 @@ export class ApiCore {
   this.api = new Proxy({}, {
     get: (_target, prop) => {
      //console.log('get', prop);
-
      return async (...args) => {
       //console.log('call', prop, args);
-
       return await this.call(prop, args);
      }
     }
