@@ -9,10 +9,10 @@ export class ApiClient extends ModuleApiBase {
    webServer,
    ['new_message', 'seen_message', 'seen_inbox_message']);
   this.commands = {...this.commands,
-     message_send: { method: this.message_send, reqUserSession: true },
-     message_seen: { method: this.message_seen, reqUserSession: true },
-     messages_list: { method: this.messages_list, reqUserSession: true },
-     conversations_list: { method: this.conversations_list, reqUserSession: true },
+     message_send: { method: this.message_send.bind(this), reqUserSession: true },
+     message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
+     messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
+     conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
   };
 
   this.data = new Data();
