@@ -91,7 +91,7 @@ class ApiClient {
   if (req.wsGuid) context.wsGuid = req.wsGuid;
   if (req.userID) context.userID = req.userID;
   if (req.userAddress) context.userAddress = req.userAddress;
-  updateUserData(context);
+  this.updateUserData(context);
 
   if (command_fn.reqUserSession)
   {
@@ -146,8 +146,8 @@ class ApiClient {
    address_to: usernameTo + '@' + domainTo,
    message: c.params.message
   };
-  this.notifyUser(userToID, 'new_message', msg);
-  this.notifyUser(c.userID, 'new_message', msg);
+  this.signals.notifyUser(userToID, 'new_message', msg);
+  this.signals.notifyUser(c.userID, 'new_message', msg);
   return { error: 0, message: 'Message sent', uid };
  }
 
