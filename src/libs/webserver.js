@@ -1,5 +1,5 @@
 import path from 'path';
-import ApiClient from './api-client.js';
+import { ApiClient } from './api-client.js';
 import { Log } from 'yellow-server-common';
 import { Info } from './info.js';
 
