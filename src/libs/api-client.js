@@ -4,9 +4,9 @@ import { Mutex } from 'async-mutex';
 
 
 export class ApiClient extends ModuleApiBase {
- constructor(webServer) {
+ constructor(app) {
   super(
-   webServer,
+   app,
    ['new_message', 'seen_message', 'seen_inbox_message']);
   this.commands = {...this.commands,
      message_send: { method: this.message_send.bind(this), reqUserSession: true },
@@ -14,10 +14,7 @@ export class ApiClient extends ModuleApiBase {
      messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
      conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
   };
-
-  this.data = new Data();
   this.userSeenMutex = new Mutex();
-
  }
 
  async message_send(c) {
@@ -38,8 +35,8 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
-  const res = await this.data.userSendMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
-  if (userToID !== userFromInfo.id) await this.data.userSendMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
+  const res = await this.app.data.userSendMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
+  if (userToID !== userFromInfo.id) await this.app.data.userSendMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
   const msg = {
    id: res.lastInsertRowid,
    uid,
@@ -61,17 +58,17 @@ export class ApiClient extends ModuleApiBase {
 
   let result = await this.userSeenMutex.runExclusive(async () => {
    // TRANSACTION BEGIN
-   const res = await this.data.userGetMessage(c.userID, c.params.uid);
+   const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
    if (!res) return { error: 3, message: 'Wrong message ID' };
    Log.debug('res....seen:', res);
    if (res.seen) return { error: 4, message: 'Seen flag was already set' };
-   await this.data.userMessageSeen(c.params.uid);
+   await this.app.data.userMessageSeen(c.params.uid);
    // TRANSACTION END
    return true;
   });
   if (result !== true) return result;
 
-  const res2 = await this.data.userGetMessage(c.userID, c.params.uid);
+  const res2 = await this.app.data.userGetMessage(c.userID, c.params.uid);
   const [username, domain] = res2.address_from.split('@');
   const userFromID = await this.core.api.getUserIDByUsernameAndDomainName(username, domain);
 
@@ -92,12 +89,12 @@ export class ApiClient extends ModuleApiBase {
  async messages_list(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
-  const messages = await this.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.count, c.params?.lastID);
+  const messages = await this.app.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.count, c.params?.lastID);
   return { error: 0, data: { messages } };
  }
 
  async conversations_list(c) {
-  const conversations = await this.data.userListConversations(c.userID, c.userAddress);
+  const conversations = await this.app.data.userListConversations(c.userID, c.userAddress);
   return { error: 0, data: { conversations } };
  }
 }

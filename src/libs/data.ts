@@ -1,5 +1,4 @@
 import { Log, DataGeneric } from 'yellow-server-common';
-import { Info } from './info.js';
 
 interface Message {
  id: number;
@@ -20,8 +19,8 @@ interface Conversation {
 };
 
 class Data extends DataGeneric {
- constructor() {
-  super(Info.settings.database);
+ constructor(settings) {
+  super(settings);
  }
 
  async createDB(): Promise<void> {

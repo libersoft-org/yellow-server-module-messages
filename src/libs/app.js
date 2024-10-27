@@ -1,15 +1,15 @@
 import Data from './data';
+import { ApiClient } from './api-client';
 import {ModuleAppBase} from 'yellow-server-common';
 
 
 class App extends ModuleAppBase {
  constructor() {
-  let data = new Data();
   let info = {
    appName: 'Yellow Server Module Messages',
    appVersion: '0.01',
   }
-  super(info, data);
+  super(info);
   this.defaultSettings = {
    web: {
     http_port: 25001,
@@ -28,6 +28,10 @@ class App extends ModuleAppBase {
    }
   }
   this.api = new ApiClient(this);
+ }
+
+ async init() {
+  this.data = new Data(this.info.settings.database);
  }
 }
 
