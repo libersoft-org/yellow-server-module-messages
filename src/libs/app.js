@@ -1,6 +1,7 @@
 import Data from './data';
 import { ApiClient } from './api-client';
 import {ModuleAppBase} from 'yellow-server-common';
+import path from 'path';
 
 
 class App extends ModuleAppBase {
@@ -27,7 +28,7 @@ class App extends ModuleAppBase {
     log_to_file: true
    }
   }
-  this.api = new ApiClient(this);
+  this.api = new ApiClient(this, path.dirname(import.meta.dir));
  }
 
  async init() {
