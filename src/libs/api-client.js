@@ -35,8 +35,8 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
-  const res = await this.app.data.userSendMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
-  if (userToID !== userFromInfo.id) await this.app.data.userSendMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
+  const res = await this.app.data.createMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
+  if (userToID !== userFromInfo.id) await this.app.data.createMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
   const msg = {
    id: Number(res.insertId),
    uid,

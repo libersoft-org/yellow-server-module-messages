@@ -34,14 +34,14 @@ class Data extends DataGeneric {
   }
  }
 
- async userSendMessage(
+ async createMessage(
   userID: number,
   uid: string,
   address_from: string,
   address_to: string,
   message: string
  ): Promise<any> {
-  Log.debug('userSendMessage', userID, uid, address_from, address_to, message);
+  Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
   return await this.db.query(
    'INSERT INTO messages (id_users, uid, address_from, address_to, message) VALUES (?, ?, ?, ?, ?)',
    [userID, uid, address_from, address_to, message]
