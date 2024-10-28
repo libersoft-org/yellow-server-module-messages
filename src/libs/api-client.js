@@ -38,7 +38,7 @@ export class ApiClient extends ModuleApiBase {
   const res = await this.app.data.userSendMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
   if (userToID !== userFromInfo.id) await this.app.data.userSendMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
   const msg = {
-   id: res.insertId,
+   id: Number(res.insertId),
    uid,
    address_from: userFromInfo.username + '@' + userFromDomain,
    address_to: usernameTo + '@' + domainTo,
