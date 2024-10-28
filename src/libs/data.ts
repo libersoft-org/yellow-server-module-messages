@@ -39,12 +39,13 @@ class Data extends DataGeneric {
   uid: string,
   address_from: string,
   address_to: string,
-  message: string
+  message: string,
+  created: Date = null
  ): Promise<any> {
   Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
   return await this.db.query(
-   'INSERT INTO messages (id_users, uid, address_from, address_to, message) VALUES (?, ?, ?, ?, ?)',
-   [userID, uid, address_from, address_to, message]
+   'INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)',
+   [userID, uid, address_from, address_to, message, created]
   );
  }
 

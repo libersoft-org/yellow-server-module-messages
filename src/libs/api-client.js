@@ -35,17 +35,29 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
-  const res = await this.app.data.createMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
-  if (userToID !== userFromInfo.id) await this.app.data.createMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message);
-  const msg = {
-   id: Number(res.insertId),
+  const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message, created);
+  const msg1 = {
+   id: Number(msg1_insert.insertId),
    uid,
    address_from: userFromInfo.username + '@' + userFromDomain,
    address_to: usernameTo + '@' + domainTo,
-   message: c.params.message
+   message: c.params.message,
+   created
   };
-  this.signals.notifyUser(userToID, 'new_message', msg);
-  this.signals.notifyUser(c.userID, 'new_message', msg);
+  this.signals.notifyUser(userToID, 'new_message', msg1);
+  if (userToID !== userFromInfo.id) {
+   const msg2_insert = await this.app.data.createMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message, created);
+   const msg2 = {
+    id: Number(msg2_insert.insertId),
+    uid,
+    address_from: userFromInfo.username + '@' + userFromDomain,
+    address_to: usernameTo + '@' + domainTo,
+    message: c.params.message,
+    created
+   };
+   this.signals.notifyUser(c.userID, 'new_message', msg2);
+  }
   return { error: 0, message: 'Message sent', uid };
  }
 
