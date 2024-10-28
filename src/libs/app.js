@@ -10,7 +10,7 @@ class App extends ModuleAppBase {
    appName: 'Yellow Server Module Messages',
    appVersion: '0.01',
   }
-  super(info);
+  super(info, path.dirname(import.meta.dir));
   this.defaultSettings = {
    web: {
     http_port: 25001,
@@ -28,7 +28,7 @@ class App extends ModuleAppBase {
     log_to_file: true
    }
   }
-  this.api = new ApiClient(this, path.dirname(import.meta.dir));
+  this.api = new ApiClient(this);
  }
 
  async init() {
