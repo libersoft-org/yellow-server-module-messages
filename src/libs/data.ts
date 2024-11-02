@@ -93,51 +93,20 @@ class Data extends DataGeneric {
   userID: number,
   address_my: string,
   address_other: string,
-  count = 10,
+  prevCount = 0,
+  nextCount = 0,
   lastID: number | 'unseen' = 0
  ): Promise<Message[]> {
 
-  /* todo
-prevCount
-lastID
-nextCount
- */
-
   if (lastID === 'unseen') {
-   // Find the first unseen message ID
-   const res1: { id: number }[] = await this.db.query<{ id: number }>(
-    `
-        SELECT id
-        FROM messages
-        WHERE id_users = ?
-          AND address_to = ?
-          AND seen IS NULL
-        ORDER BY id ASC LIMIT 1
-        `,
-     [userID, address_my]
-   );
-   let first_unseen_ID: number | null = res1.length > 0 ? res1[0].id : null;
+   let base = await this.getFirstUnseenMessage(userID, address_my);
+   if (base == null) base = await this.getLastMessage(userID, address_my);
+   if (base == null) return [];
 
-   if (first_unseen_ID === null) {
-    // No unseen messages, use the last message ID
-    const res2: { id: number }[] = await this.db.query<{ id: number }>(
-     `
-          SELECT id
-          FROM messages
-          WHERE id_users = ?
-            AND address_to = ?
-          ORDER BY id DESC LIMIT 1
-          `,
-      [userID, address_my]
-    );
-    first_unseen_ID = res2.length > 0 ? res2[0].id : 0;
-   }
+   if (prevCount > 0) {
+    const prevID = await this.getPrevMessage(userID, address_my, base, prevCount);
 
-   if (first_unseen_ID === null) {
-    return [];
-   }
 
-   // Go back for context
    const res3: Message[] = await this.db.query<Message>(
     `
         SELECT id, uid, address_from, address_to, message, seen, created
@@ -173,6 +142,36 @@ nextCount
     [userID, address_my, address_other, address_other, address_my, lastID, count]
   );
   return res4.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+ }
+
+ private async getLastMessage(userID: number, address_my: string) {
+  const res2: { id: number }[] = await this.db.query<{ id: number }>(
+   `
+          SELECT id
+          FROM messages
+          WHERE id_users = ?
+            AND address_to = ?
+          ORDER BY id DESC LIMIT 1
+          `,
+   [userID, address_my]
+  );
+  return res2?.[0].id;
+ }
+
+ private async getFirstUnseenMessage(userID: number, address_my: string) {
+  // Find the first unseen message ID
+  const res1: { id: number }[] = await this.db.query<{ id: number }>(
+   `
+        SELECT id
+        FROM messages
+        WHERE id_users = ?
+          AND address_to = ?
+          AND seen IS NULL
+        ORDER BY id ASC LIMIT 1
+        `,
+   [userID, address_my]
+  );
+  return res1?.[0].id;
  }
 
  addSeenFlagToSelfMessages(message: Message): Message {
