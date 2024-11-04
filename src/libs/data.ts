@@ -107,8 +107,8 @@ class Data extends DataGeneric {
     const prevID = await this.getPrevMessage(userID, address_my, base, prevCount);
 
 
-   const res3: Message[] = await this.db.query<Message>(
-    `
+    const res3: Message[] = await this.db.query<Message>(
+     `
         SELECT id, uid, address_from, address_to, message, seen, created
         FROM messages
         WHERE id_users = ?
@@ -121,12 +121,12 @@ class Data extends DataGeneric {
         ORDER BY id DESC LIMIT 30
         `,
      [userID, address_other, address_my, address_my, address_other, first_unseen_ID]
-   );
-   lastID = res3.length > 0 ? res3[res3.length - 1].id : first_unseen_ID;
-  }
+    );
+    lastID = res3.length > 0 ? res3[res3.length - 1].id : first_unseen_ID;
+   }
 
-  const res4: Message[] = await this.db.query<Message>(
-   `
+   const res4: Message[] = await this.db.query<Message>(
+    `
       SELECT id, uid, address_from, address_to, message, seen, created
       FROM messages
       WHERE id_users = ?
@@ -140,8 +140,9 @@ class Data extends DataGeneric {
       LIMIT ?
       `,
     [userID, address_my, address_other, address_other, address_my, lastID, count]
-  );
-  return res4.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+   );
+   return res4.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+  }
  }
 
  private async getLastMessage(userID: number, address_my: string) {
