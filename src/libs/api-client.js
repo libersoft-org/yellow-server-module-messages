@@ -14,13 +14,14 @@ export class ApiClient extends ModuleApiBase {
      messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
      conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
   };
-  this.userSeenMutex = new Mutex();
+  this.message_seen_mutex = new Mutex();
  }
 
  async message_send(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
-  let [usernameTo, domainTo] = c.params.address.split('@');
+  const userToAddress = c.params.address;
+  let [usernameTo, domainTo] = userToAddress.split('@');
   if (!usernameTo || !domainTo) return { error: 4, message: 'Invalid username format' };
   usernameTo = usernameTo.toLowerCase();
   domainTo = domainTo.toLowerCase();
@@ -32,25 +33,30 @@ export class ApiClient extends ModuleApiBase {
   if (!userToID) return { error: 6, message: 'User name not found on this server' };
   const userFromInfo = await this.core.api.userGetUserInfo(c.userID);
   const userFromDomain = await this.core.api.getDomainNameByID(userFromInfo.id_domains);
+  const userFromAddress = userFromInfo.username + '@' + userFromDomain;
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message, created);
+
+  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
    uid,
+   prev: msg1_insert.prev,
    address_from: userFromInfo.username + '@' + userFromDomain,
    address_to: usernameTo + '@' + domainTo,
    message: c.params.message,
    created
   };
   this.signals.notifyUser(userToID, 'new_message', msg1);
+
   if (userToID !== userFromInfo.id) {
-   const msg2_insert = await this.app.data.createMessage(userToID, uid, userFromInfo.username + '@' + userFromDomain, usernameTo + '@' + domainTo, c.params.message, created);
+   const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, created);
    const msg2 = {
     id: Number(msg2_insert.insertId),
     uid,
+    prev: msg1_insert.prev,
     address_from: userFromInfo.username + '@' + userFromDomain,
     address_to: usernameTo + '@' + domainTo,
     message: c.params.message,
@@ -58,6 +64,7 @@ export class ApiClient extends ModuleApiBase {
    };
    this.signals.notifyUser(c.userID, 'new_message', msg2);
   }
+
   return { error: 0, message: 'Message sent', uid };
  }
 
@@ -68,7 +75,7 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
   if (!c.userID) throw new Error('User ID is missing');
 
-  let result = await this.userSeenMutex.runExclusive(async () => {
+  let result = await this.message_seen_mutex.runExclusive(async () => {
    // TRANSACTION BEGIN
    const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
    if (!res) return { error: 3, message: 'Wrong message ID' };
@@ -78,6 +85,7 @@ export class ApiClient extends ModuleApiBase {
    // TRANSACTION END
    return true;
   });
+
   if (result !== true) return result;
 
   const res2 = await this.app.data.userGetMessage(c.userID, c.params.uid);
@@ -101,7 +109,7 @@ export class ApiClient extends ModuleApiBase {
  async messages_list(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
-  const messages = await this.app.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.count, c.params?.lastID);
+  const messages = await this.app.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.base, c.params?.prev, c.params?.next);
   return { error: 0, data: { messages } };
  }
 

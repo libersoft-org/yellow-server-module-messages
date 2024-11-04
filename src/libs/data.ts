@@ -1,4 +1,5 @@
 import { Log, DataGeneric } from 'yellow-server-common';
+import { Mutex } from 'async-mutex';
 
 interface Message {
  id: number;
@@ -9,6 +10,8 @@ interface Message {
  message: string;
  seen: Date | null;
  created: Date;
+ prev: number | string | undefined;
+ next: number | string | undefined;
 };
 
 interface Conversation {
@@ -21,6 +24,7 @@ interface Conversation {
 class Data extends DataGeneric {
  constructor(settings) {
   super(settings);
+  this.createMessageMutex = new Mutex();
  }
 
  async createDB(): Promise<void> {
@@ -34,19 +38,29 @@ class Data extends DataGeneric {
   }
  }
 
+
  async createMessage(
   userID: number,
   uid: string,
+
+  user_address: string,
+  conversation: string,
+
   address_from: string,
   address_to: string,
+
   message: string,
   created: Date = null
  ): Promise<any> {
-  Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
-  return await this.db.query(
-   'INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)',
-   [userID, uid, address_from, address_to, message, created]
-  );
+  return await this.createMessageMutex.runExclusive(async () => {
+   Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
+   const last_id = this.getLastMessageID(userID, user_address, conversation);
+   let r = await this.db.query(
+    'INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)',
+    [userID, uid, address_from, address_to, message, created]
+   );
+   r.prev = last_id;
+  });
  }
 
  async userGetMessage(userID: number, uid: string): Promise<Message | false> {
@@ -93,22 +107,65 @@ class Data extends DataGeneric {
   userID: number,
   address_my: string,
   address_other: string,
+  base: number | 'unseen' = 0,
   prevCount = 0,
   nextCount = 0,
-  lastID: number | 'unseen' = 0
  ): Promise<Message[]> {
 
-  if (lastID === 'unseen') {
-   let base = await this.getFirstUnseenMessage(userID, address_my);
-   if (base == null) base = await this.getLastMessage(userID, address_my);
-   if (base == null) return [];
+  let base_id;
 
-   if (prevCount > 0) {
-    const prevID = await this.getPrevMessage(userID, address_my, base, prevCount);
+  if (base === 'unseen') {
+   base_id = await this.getFirstUnseenMessageID(userID, address_my);
+   if (base_id == null) base_id = await this.getLastMessageID(userID, address_my, address_other);
+   if (base_id == null) return [];
+  }
+  else {
+   base_id = base;
+  }
 
+  let result = [await this.getMessage(userID, base_id)];
 
-    const res3: Message[] = await this.db.query<Message>(
-     `
+  let prevMessages = [];
+  if (prevCount > 0) {
+   prevMessages = await this.getPrevMessages(userID, address_my, address_other, base_id, prevCount + 1);
+   result = prevMessages.concat(result);
+  }
+
+  let nextMessages = [];
+  if (nextCount > 0) {
+   const nextMessages = await this.getNextMessages(userID, address_my, address_other, base_id, nextCount + 1);
+   result = result.concat(nextMessages);
+  }
+
+  this.linkupMessages(result);
+
+  if (prevCount > 0) {
+   if (prevMessages.length === prevCount + 1) {
+    result = result.slice(1);
+   }
+  }
+
+  if (nextCount > 0) {
+   if (nextMessages.length === nextCount + 1) {
+    result = result.slice(0, -1);
+   }
+  }
+
+  return result.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+
+ }
+
+ private linkupMessages(messages: Message[]) {
+  for (let i = 0; i < messages.length; i++) {
+   //console.log('linkupMessages', i, JSON.stringify(messages[i], null, 2));
+   if (i > 0) messages[i].prev = messages[i - 1].id;
+   if (i < messages.length - 1) messages[i].next = messages[i + 1].id;
+  }
+ }
+
+ private async getPrevMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
+  const res3: Message[] = await this.db.query<Message>(
+   `
         SELECT id, uid, address_from, address_to, message, seen, created
         FROM messages
         WHERE id_users = ?
@@ -118,48 +175,67 @@ class Data extends DataGeneric {
             (address_from = ? AND address_to = ?)
           )
           AND id < ?
-        ORDER BY id DESC LIMIT 30
+        ORDER BY id ASC LIMIT ?
         `,
-     [userID, address_other, address_my, address_my, address_other, first_unseen_ID]
-    );
-    lastID = res3.length > 0 ? res3[res3.length - 1].id : first_unseen_ID;
-   }
-
-   const res4: Message[] = await this.db.query<Message>(
-    `
-      SELECT id, uid, address_from, address_to, message, seen, created
-      FROM messages
-      WHERE id_users = ?
-        AND (
-          (address_from = ? AND address_to = ?)
-          OR
-          (address_from = ? AND address_to = ?)
-        )
-        AND id > ?
-      ORDER BY id DESC
-      LIMIT ?
-      `,
-    [userID, address_my, address_other, address_other, address_my, lastID, count]
-   );
-   return res4.map((message: Message) => this.addSeenFlagToSelfMessages(message));
-  }
+   [userID, address_other, address_my, address_my, address_other, base, count]
+  );
+  return res3;
  }
 
- private async getLastMessage(userID: number, address_my: string) {
+
+ private async getNextMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
+  const res4: Message[] = await this.db.query<Message>(
+   `
+        SELECT id, uid, address_from, address_to, message, seen, created
+        FROM messages
+        WHERE id_users = ?
+          AND (
+            (address_from = ? AND address_to = ?)
+            OR
+            (address_from = ? AND address_to = ?)
+          )
+          AND id > ?
+        ORDER BY id ASC LIMIT ?
+        `,
+   [userID, address_other, address_my, address_my, address_other, base, count]
+  );
+  return res4;
+ }
+
+
+ private async getMessage(userID: number, id: number) {
+  const res: Message[] = await this.db.query<Message>(
+   `
+        SELECT id, uid, address_from, address_to, message, seen, created
+        FROM messages
+        WHERE id_users = ?
+          AND id = ?
+        `,
+   [userID, id]
+  );
+  return res[0];
+ }
+
+
+ private async getLastMessageID(userID: number, address_my: string, address_other: string) {
   const res2: { id: number }[] = await this.db.query<{ id: number }>(
    `
           SELECT id
           FROM messages
           WHERE id_users = ?
-            AND address_to = ?
+          AND (
+            (address_from = ? AND address_to = ?)
+            OR
+            (address_from = ? AND address_to = ?)
+          )
           ORDER BY id DESC LIMIT 1
           `,
-   [userID, address_my]
+   [userID, address_my, address_other, address_other, address_my]
   );
   return res2?.[0].id;
  }
 
- private async getFirstUnseenMessage(userID: number, address_my: string) {
+ private async getFirstUnseenMessageID(userID: number, address_my: string) {
   // Find the first unseen message ID
   const res1: { id: number }[] = await this.db.query<{ id: number }>(
    `
@@ -172,7 +248,7 @@ class Data extends DataGeneric {
         `,
    [userID, address_my]
   );
-  return res1?.[0].id;
+  return res1?.[0]?.id;
  }
 
  addSeenFlagToSelfMessages(message: Message): Message {
