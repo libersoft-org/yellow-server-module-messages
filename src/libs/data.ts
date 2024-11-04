@@ -175,11 +175,11 @@ class Data extends DataGeneric {
             (address_from = ? AND address_to = ?)
           )
           AND id < ?
-        ORDER BY id ASC LIMIT ?
+        ORDER BY id DESC LIMIT ?
         `,
    [userID, address_other, address_my, address_my, address_other, base, count]
   );
-  return res3;
+  return res3.reverse();
  }
 
 
