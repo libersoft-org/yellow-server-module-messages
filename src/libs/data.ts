@@ -138,7 +138,7 @@ class Data extends DataGeneric {
 
   let nextMessages = [];
   if (nextCount > 0) {
-   const nextMessages = await this.getNextMessages(userID, address_my, address_other, base_id, nextCount + 1);
+   nextMessages = await this.getNextMessages(userID, address_my, address_other, base_id, nextCount + 1);
    //console.log('nextMessages', nextMessages);
    result = result.concat(nextMessages);
   }
@@ -146,19 +146,20 @@ class Data extends DataGeneric {
   this.linkupMessages(result);
 
   if (prevMessages.length > 0) {
-   if (prevCount > 0) {
+
     if (prevMessages.length === prevCount + 1) {
      result = result.slice(1);
     } else {
      let firstMessage = prevMessages[0];
      firstMessage.prev = 'none';
     }
-   }
+
   }
 
   if (nextMessages.length > 0) {
-   if (nextCount > 0) {
+
     if (nextMessages.length === nextCount + 1) {
+     console.log('remove last message.');
      result = result.slice(0, -1);
     } else {
      console.log('mark last message.');
@@ -166,7 +167,7 @@ class Data extends DataGeneric {
      lastMessage.next = 'none';
      console.log('lastMessage', lastMessage);
     }
-   }
+
   }
 
   if (result.length === 0) return [];
