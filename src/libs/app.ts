@@ -1,7 +1,7 @@
 import Data from './data';
 import { ApiClient } from './api-client';
 import { ModuleAppBase } from 'yellow-server-common';
-import path from 'path';
+import { path } from 'path';
 
 interface Settings {
   web: {
@@ -25,6 +25,7 @@ class App extends ModuleAppBase {
   defaultSettings: Settings;
   api: ApiClient;
   data: Data;
+  info: any;
 
   constructor() {
     const info = {
