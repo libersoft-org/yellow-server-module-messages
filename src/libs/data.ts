@@ -145,29 +145,17 @@ class Data extends DataGeneric {
 
   this.linkupMessages(result);
 
-  if (prevMessages.length > 0) {
-
-    if (prevMessages.length === prevCount + 1) {
-     result = result.slice(1);
-    } else {
-     let firstMessage = prevMessages[0];
-     firstMessage.prev = 'none';
-    }
-
+  if (prevCount > 0) {
+   if (prevMessages.length === prevCount + 1) {
+    result = result.slice(1);
+   }
   }
 
-  if (nextMessages.length > 0) {
-
+  if (nextCount > 0) {
     if (nextMessages.length === nextCount + 1) {
      console.log('remove last message.');
      result = result.slice(0, -1);
-    } else {
-     console.log('mark last message.');
-     let lastMessage = nextMessages[nextMessages.length - 1];
-     lastMessage.next = 'none';
-     console.log('lastMessage', lastMessage);
     }
-
   }
 
   if (result.length === 0) return [];
@@ -281,17 +269,11 @@ class Data extends DataGeneric {
         SELECT id
         FROM messages
         WHERE id_users = ?
-
-        AND (
-          (address_from = ? AND address_to = ?)
-          OR
-          (address_from = ? AND address_to = ?)
-        )
-
+        AND (address_from = ? AND address_to = ?)
         AND seen IS NULL
         ORDER BY id ASC LIMIT 1
         `,
-   [userID, address_my, address_other, address_other, address_my]
+   [userID, address_other, address_my]
   );
   return res1?.[0]?.id;
  }
