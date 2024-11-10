@@ -60,11 +60,12 @@ class Data extends DataGeneric {
     [userID, uid, address_from, address_to, message, created]
    );
    r.prev = last_id;
+   return r;
   });
  }
 
  async userGetMessage(userID: number, uid: string): Promise<Message | false> {
-  const res: Message[] = await this.db.query<Message>(
+  const res: Message[] = await this.db.query<Message[]>(
    'SELECT id, id_users, uid, address_from, address_to, message, seen, created FROM messages WHERE uid = ? and id_users = ?',
    [uid, userID]
   );

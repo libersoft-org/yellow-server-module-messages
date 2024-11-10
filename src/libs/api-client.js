@@ -56,7 +56,7 @@ export class ApiClient extends ModuleApiBase {
    const msg2 = {
     id: Number(msg2_insert.insertId),
     uid,
-    prev: msg1_insert.prev,
+    prev: msg2_insert.prev,
     address_from: userFromInfo.username + '@' + userFromDomain,
     address_to: usernameTo + '@' + domainTo,
     message: c.params.message,
