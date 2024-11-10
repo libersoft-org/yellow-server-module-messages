@@ -78,7 +78,7 @@ class Data extends DataGeneric {
  async userListConversations(userID: number, userAddress: string): Promise<Conversation[] | false> {
   Log.debug('userListConversations', userID, userAddress);
 
-  const res: Conversation[] = await this.db.query<Conversation>(
+  const res: Conversation[] = await this.db.query<Conversation[]>(
    `
       SELECT
         conv.other_address as address,
@@ -170,7 +170,7 @@ class Data extends DataGeneric {
    result[result.length - 1].next = 'none';
   }
 
-  return result.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+  return result;//.map((message: Message) => this.addSeenFlagToSelfMessages(message));
  }
 
  private linkupMessages(messages: Message[]) {
