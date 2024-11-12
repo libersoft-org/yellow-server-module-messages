@@ -69,7 +69,6 @@ export class ApiClient extends ModuleApiBase {
  }
 
 
-
   async message_seen(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
