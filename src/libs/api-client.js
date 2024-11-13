@@ -39,17 +39,20 @@ export class ApiClient extends ModuleApiBase {
   const uid = c.params.uid;
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+  const address_from = userFromInfo.username + '@' + userFromDomain;
+  const address_to = usernameTo + '@' + domainTo;
+
   const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
    uid,
    prev: msg1_insert.prev,
-   address_from: userFromInfo.username + '@' + userFromDomain,
-   address_to: usernameTo + '@' + domainTo,
+   address_from,
+   address_to,
    message: c.params.message,
    created
   };
-  this.signals.notifyUser(userToID, 'new_message', msg1);
+  this.signals.notifyUser(c.userID, 'new_message', msg1);
 
   if (userToID !== userFromInfo.id) {
    const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, created);
@@ -57,12 +60,12 @@ export class ApiClient extends ModuleApiBase {
     id: Number(msg2_insert.insertId),
     uid,
     prev: msg2_insert.prev,
-    address_from: userFromInfo.username + '@' + userFromDomain,
-    address_to: usernameTo + '@' + domainTo,
+    address_from,
+    address_to,
     message: c.params.message,
     created
    };
-   this.signals.notifyUser(c.userID, 'new_message', msg2);
+   this.signals.notifyUser(userToID, 'new_message', msg2);
   }
 
   return { error: 0, message: 'Message sent', uid };
