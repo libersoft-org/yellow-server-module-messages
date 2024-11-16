@@ -18,6 +18,7 @@ export class ApiClient extends ModuleApiBase {
  }
 
  async message_send(c) {
+  rstrst();
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
   const userToAddress = c.params.address;

@@ -59,7 +59,7 @@ class Data extends DataGeneric {
     'INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)',
     [userID, uid, address_from, address_to, message, created]
    );
-   r.prev = last_id;
+   r.prev = last_id; /*?fixme to "none"?*/
    return r;
   });
  }
@@ -122,7 +122,7 @@ class Data extends DataGeneric {
    console.log('base_id', base_id);
    if (base_id == null) base_id = await this.getLastMessageID(userID, address_my, address_other);
    console.log('base_id', base_id);
-   if (base_id == null) return [];
+   if (base_id == null || base_id === undefined) return [];
   } else {
    base_id = base;
   }
@@ -258,7 +258,7 @@ class Data extends DataGeneric {
           `,
    [userID, address_my, address_other, address_other, address_my]
   );
-  return res2?.[0].id;
+  return res2?.[0]?.id;
  }
 
  private async getFirstUnseenMessageID(userID: number, address_my: string, address_other: string) {
