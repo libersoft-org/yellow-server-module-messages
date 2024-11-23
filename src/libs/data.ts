@@ -97,7 +97,8 @@ class Data extends DataGeneric {
         GROUP BY other_address
       ) AS conv
       JOIN messages m ON m.id = conv.last_message_id
-      WHERE m.id_users = ?;
+      WHERE m.id_users = ?
+      ORDER BY last_message_date DESC;
       `,
    [userAddress, userAddress, userID, userAddress, userID, userID]
   );
