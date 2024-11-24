@@ -118,7 +118,12 @@ export class ApiClient extends ModuleApiBase {
 
  async conversations_list(c) {
   const conversations = await this.app.data.userListConversations(c.userID, c.userAddress);
-  return { error: 0, data: { conversations: conversations.conversations } };
+  console.log('conversations:');
+  for (let i in conversations) {
+   console.log(i);
+  }
+  conversations.meta = undefined;
+  return { error: 0, data: { conversations } };
  }
 }
 
