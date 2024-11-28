@@ -1,6 +1,9 @@
 import Data from './data';
-import { Log, ModuleApiBase } from "yellow-server-common";
+import { newLogger, ModuleApiBase } from "yellow-server-common";
 import { Mutex } from 'async-mutex';
+
+
+let Log = newLogger('api-client');
 
 
 export class ApiClient extends ModuleApiBase {
@@ -18,7 +21,6 @@ export class ApiClient extends ModuleApiBase {
  }
 
  async message_send(c) {
-  //rstrst();
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
   const userToAddress = c.params.address;

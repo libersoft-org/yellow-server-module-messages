@@ -1,5 +1,7 @@
-import {Log, DataGeneric} from 'yellow-server-common';
+import {newLogger, DataGeneric} from 'yellow-server-common';
 import {Mutex} from 'async-mutex';
+
+let Log = newLogger('data');
 
 interface Message {
  id: number;
