@@ -118,13 +118,13 @@ class Data extends DataGeneric {
 
   let base_id;
 
-  console.log('userListMessages', userID, address_my, address_other, base, prevCount, nextCount);
+  Log.debug('userListMessages', userID, address_my, address_other, base, prevCount, nextCount);
 
   if (base === 'unseen') {
    base_id = await this.getFirstUnseenMessageID(userID, address_my, address_other);
-   console.log('base_id', base_id);
+   Log.debug('base_id', base_id);
    if (base_id == null) base_id = await this.getLastMessageID(userID, address_my, address_other);
-   console.log('base_id', base_id);
+   Log.debug('base_id', base_id);
    if (base_id == null || base_id === undefined) return [];
   } else {
    base_id = base;
@@ -133,19 +133,19 @@ class Data extends DataGeneric {
   /* fixme...*/
   let result = [await this.getMessage(userID, base_id)];
 
-  console.log('result: ', JSON.stringify(result, null, 2));
+  Log.debug('result: ', JSON.stringify(result, null, 2));
 
   let prevMessages = [];
   if (prevCount > 0) {
    prevMessages = await this.getPrevMessages(userID, address_my, address_other, base_id, prevCount + 1);
-   console.log('prevMessages: ', JSON.stringify(prevMessages, null, 2));
+   Log.debug('prevMessages: ', JSON.stringify(prevMessages, null, 2));
    result = prevMessages.concat(result);
   }
 
   let nextMessages = [];
   if (nextCount > 0) {
    nextMessages = await this.getNextMessages(userID, address_my, address_other, base_id, nextCount + 1);
-   console.log('nextMessages: ', JSON.stringify(nextMessages, null, 2));
+   Log.debug('nextMessages: ', JSON.stringify(nextMessages, null, 2));
    result = result.concat(nextMessages);
   }
 
@@ -159,7 +159,7 @@ class Data extends DataGeneric {
 
   if (nextCount > 0) {
     if (nextMessages.length === nextCount + 1) {
-     console.log('remove last message.');
+     Log.debug('remove last message.');
      result = result.slice(0, -1);
     }
   }
@@ -180,10 +180,10 @@ class Data extends DataGeneric {
  }
 
  private linkupMessages(messages: Message[]) {
-  console.log('linkupMessages', messages.length);
-  console.log('linkupMessages', JSON.stringify(messages, null, 2));
+  Log.debug('linkupMessages', messages.length);
+  Log.debug('linkupMessages', JSON.stringify(messages, null, 2));
   for (let i = 0; i < messages.length; i++) {
-   console.log('linkupMessages', i, JSON.stringify(messages[i], null, 2));
+   Log.debug('linkupMessages', i, JSON.stringify(messages[i], null, 2));
    if (i > 0) messages[i].prev = messages[i - 1].id;
    if (i < messages.length - 1) messages[i].next = messages[i + 1].id;
   }
@@ -191,7 +191,7 @@ class Data extends DataGeneric {
 
  private async getPrevMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
 
-  console.log('getPrevMessages', userID, address_my, address_other, base, count);
+  Log.debug('getPrevMessages', userID, address_my, address_other, base, count);
 
   const res3: Message[] = await this.db.query<Message>(
    `
@@ -214,7 +214,7 @@ class Data extends DataGeneric {
 
  private async getNextMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
 
-  console.log('getNextMessages', userID, address_my, address_other, base, count);
+  Log.debug('getNextMessages', userID, address_my, address_other, base, count);
 
   const res4: Message[] = await this.db.query<Message>(
    `
@@ -236,12 +236,12 @@ class Data extends DataGeneric {
 
 
  private async getMessage(userID: number, id: number) {
-  console.log('getMessage', userID, id);
+  Log.debug('getMessage', userID, id);
   const res: Message = await this.db.query<Message>(
    `SELECT * FROM messages WHERE id_users = ? AND id = ?`,
    [userID, id]
   );
-  console.log('getMessage', JSON.stringify(res, null, 2));
+  Log.debug('getMessage', JSON.stringify(res, null, 2));
   return res[0];
  }
 

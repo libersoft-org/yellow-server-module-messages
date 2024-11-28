@@ -84,7 +84,7 @@ export class ApiClient extends ModuleApiBase {
    // TRANSACTION BEGIN
    const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
    if (!res) return { error: 3, message: 'Wrong message ID' };
-   Log.debug('res....seen:', res);
+   Log.debug(c.corr, 'res....seen:', res);
    if (res.seen) return { error: 4, message: 'Seen flag was already set' };
    await this.app.data.userMessageSeen(c.params.uid);
    // TRANSACTION END
@@ -120,9 +120,9 @@ export class ApiClient extends ModuleApiBase {
 
  async conversations_list(c) {
   const conversations = await this.app.data.userListConversations(c.userID, c.userAddress);
-  console.log('conversations:');
+  Log.debug(c.corr, 'conversations:');
   for (let i in conversations) {
-   console.log(i);
+   Log.debug(c.corr, i);
   }
   conversations.meta = undefined;
   return { error: 0, data: { conversations } };
