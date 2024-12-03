@@ -1,5 +1,5 @@
-import {newLogger, DataGeneric} from 'yellow-server-common';
-import {Mutex} from 'async-mutex';
+import { newLogger, DataGeneric } from 'yellow-server-common';
+import { Mutex } from 'async-mutex';
 
 let Log = newLogger('data');
 
@@ -14,17 +14,16 @@ interface Message {
  created: Date;
  prev: number | string | undefined;
  next: number | string | undefined;
-};
+}
 
 interface Conversation {
  address: string;
  last_message_text: string;
  last_message_date: Date;
  unread_count: number;
-};
+}
 
 class Data extends DataGeneric {
-
  createMessageMutex: Mutex;
 
  constructor(settings) {
@@ -34,43 +33,25 @@ class Data extends DataGeneric {
 
  async createDB(): Promise<void> {
   try {
-   await this.db.query(
-    'CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)'
-   );
+   await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
   } catch (ex) {
    Log.info(ex);
    process.exit(1);
   }
  }
 
-
- async createMessage(
-  userID: number,
-  uid: string,
-  user_address: string,
-  conversation: string,
-  address_from: string,
-  address_to: string,
-  message: string,
-  created: Date = null
- ): Promise<any> {
+ async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, created: Date = null): Promise<any> {
   return await this.createMessageMutex.runExclusive(async () => {
    Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
    const last_id = this.getLastMessageID(userID, user_address, conversation);
-   let r = await this.db.query(
-    'INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)',
-    [userID, uid, address_from, address_to, message, created]
-   );
+   let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, created]);
    r.prev = last_id; /*?fixme to "none"?*/
    return r;
   });
  }
 
  async userGetMessage(userID: number, uid: string): Promise<Message | false> {
-  const res: Message[] = await this.db.query<Message[]>(
-   'SELECT id, id_users, uid, address_from, address_to, message, seen, created FROM messages WHERE uid = ? and id_users = ?',
-   [uid, userID]
-  );
+  const res: Message[] = await this.db.query<Message[]>('SELECT id, id_users, uid, address_from, address_to, message, seen, created FROM messages WHERE uid = ? and id_users = ?', [uid, userID]);
   return res.length === 1 ? res[0] : false;
  }
 
@@ -107,15 +88,7 @@ class Data extends DataGeneric {
   return res;
  }
 
- async userListMessages(
-  userID: number,
-  address_my: string,
-  address_other: string,
-  base: number | 'unseen' = 0,
-  prevCount = 0,
-  nextCount = 0,
- ): Promise<Message[]> {
-
+ async userListMessages(userID: number, address_my: string, address_other: string, base: number | 'unseen' = 0, prevCount = 0, nextCount = 0): Promise<Message[]> {
   let base_id;
 
   Log.debug('userListMessages', userID, address_my, address_other, base, prevCount, nextCount);
@@ -158,10 +131,10 @@ class Data extends DataGeneric {
   }
 
   if (nextCount > 0) {
-    if (nextMessages.length === nextCount + 1) {
-     Log.debug('remove last message.');
-     result = result.slice(0, -1);
-    }
+   if (nextMessages.length === nextCount + 1) {
+    Log.debug('remove last message.');
+    result = result.slice(0, -1);
+   }
   }
 
   if (result.length === 0) return [];
@@ -176,7 +149,7 @@ class Data extends DataGeneric {
    result[result.length - 1].next = 'none';
   }
 
-  return result;//.map((message: Message) => this.addSeenFlagToSelfMessages(message));
+  return result; //.map((message: Message) => this.addSeenFlagToSelfMessages(message));
  }
 
  private linkupMessages(messages: Message[]) {
@@ -190,7 +163,6 @@ class Data extends DataGeneric {
  }
 
  private async getPrevMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
-
   Log.debug('getPrevMessages', userID, address_my, address_other, base, count);
 
   const res3: Message[] = await this.db.query<Message>(
@@ -211,9 +183,7 @@ class Data extends DataGeneric {
   return res3.reverse();
  }
 
-
  private async getNextMessages(userID: number, address_my: string, address_other: string, base: number, count: number) {
-
   Log.debug('getNextMessages', userID, address_my, address_other, base, count);
 
   const res4: Message[] = await this.db.query<Message>(
@@ -234,17 +204,12 @@ class Data extends DataGeneric {
   return res4;
  }
 
-
  private async getMessage(userID: number, id: number) {
   Log.debug('getMessage', userID, id);
-  const res: Message = await this.db.query<Message>(
-   `SELECT * FROM messages WHERE id_users = ? AND id = ?`,
-   [userID, id]
-  );
+  const res: Message = await this.db.query<Message>(`SELECT * FROM messages WHERE id_users = ? AND id = ?`, [userID, id]);
   Log.debug('getMessage', JSON.stringify(res, null, 2));
   return res[0];
  }
-
 
  private async getLastMessageID(userID: number, address_my: string, address_other: string) {
   const res2: { id: number }[] = await this.db.query<{ id: number }>(

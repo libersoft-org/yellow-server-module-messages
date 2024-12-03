@@ -1,22 +1,13 @@
 import Data from './data';
-import { newLogger, ModuleApiBase } from "yellow-server-common";
+import { newLogger, ModuleApiBase } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-
 
 let Log = newLogger('api-client');
 
-
 export class ApiClient extends ModuleApiBase {
  constructor(app) {
-  super(
-   app,
-   ['new_message', 'seen_message', 'seen_inbox_message']);
-  this.commands = {...this.commands,
-     message_send: { method: this.message_send.bind(this), reqUserSession: true },
-     message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
-     messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
-     conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
-  };
+  super(app, ['new_message', 'seen_message', 'seen_inbox_message']);
+  this.commands = { ...this.commands, message_send: { method: this.message_send.bind(this), reqUserSession: true }, message_seen: { method: this.message_seen.bind(this), reqUserSession: true }, messages_list: { method: this.messages_list.bind(this), reqUserSession: true }, conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true } };
   this.message_seen_mutex = new Mutex();
  }
 
@@ -74,8 +65,7 @@ export class ApiClient extends ModuleApiBase {
   return { error: 0, message: 'Message sent', uid };
  }
 
-
-  async message_seen(c) {
+ async message_seen(c) {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
   if (!c.userID) throw new Error('User ID is missing');
@@ -128,4 +118,3 @@ export class ApiClient extends ModuleApiBase {
   return { error: 0, data: { conversations } };
  }
 }
-
