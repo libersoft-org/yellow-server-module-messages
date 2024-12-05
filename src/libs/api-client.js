@@ -74,7 +74,7 @@ export class ApiClient extends ModuleApiBase {
    // TRANSACTION BEGIN
    const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
    if (!res) return { error: 3, message: 'Wrong message ID' };
-   Log.debug(c.corr, 'res....seen:', res);
+   //Log.debug(c.corr, 'res....seen:', res);
    if (res.seen) return { error: 4, message: 'Seen flag was already set' };
    await this.app.data.userMessageSeen(c.params.uid);
    // TRANSACTION END
