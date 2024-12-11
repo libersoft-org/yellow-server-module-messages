@@ -28,6 +28,7 @@ class App extends ModuleAppBase {
 
  constructor() {
   const info = {
+   appPath: path.dirname(import.meta.dir) + '/',
    appName: 'Yellow Server Module Messages',
    appVersion: '0.01'
   };
