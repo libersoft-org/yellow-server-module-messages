@@ -1,7 +1,5 @@
-import Data from './data';
 import { newLogger, ModuleApiBase } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-
 let Log = newLogger('api-client');
 
 export class ApiClient extends ModuleApiBase {
@@ -19,9 +17,7 @@ export class ApiClient extends ModuleApiBase {
   if (!usernameTo || !domainTo) return { error: 4, message: 'Invalid username format' };
   usernameTo = usernameTo.toLowerCase();
   domainTo = domainTo.toLowerCase();
-
   const domainToID = await this.core.api.getDomainIDByName(domainTo);
-
   if (!domainToID) return { error: 5, message: 'Domain name not found on this server' };
   const userToID = await this.core.api.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
   if (!userToID) return { error: 6, message: 'User name not found on this server' };
@@ -32,10 +28,8 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
   const uid = c.params.uid;
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
-
   const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
@@ -47,7 +41,6 @@ export class ApiClient extends ModuleApiBase {
    created
   };
   this.signals.notifyUser(c.userID, 'new_message', msg1);
-
   if (userToID !== userFromInfo.id) {
    const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, created);
    const msg2 = {
@@ -61,7 +54,6 @@ export class ApiClient extends ModuleApiBase {
    };
    this.signals.notifyUser(userToID, 'new_message', msg2);
   }
-
   return { error: 0, message: 'Message sent', uid };
  }
 
@@ -69,7 +61,6 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params) return { error: 1, message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
   if (!c.userID) throw new Error('User ID is missing');
-
   let result = await this.message_seen_mutex.runExclusive(async () => {
    // TRANSACTION BEGIN
    const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
@@ -80,24 +71,19 @@ export class ApiClient extends ModuleApiBase {
    // TRANSACTION END
    return true;
   });
-
   if (result !== true) return result;
-
   const res2 = await this.app.data.userGetMessage(c.userID, c.params.uid);
   const [username, domain] = res2.address_from.split('@');
   const userFromID = await this.core.api.getUserIDByUsernameAndDomainName(username, domain);
-
   this.signals.notifyUser(userFromID, 'seen_message', {
    uid: c.params.uid,
    seen: res2.seen
   });
-
   this.signals.notifyUser(c.userID, 'seen_inbox_message', {
    uid: c.params.uid,
    address_from: res2.address_from,
    seen: res2.seen
   });
-
   return { error: 0, message: 'Seen flag set successfully' };
  }
 
