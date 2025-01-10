@@ -44,6 +44,7 @@ class Data extends DataGeneric {
    const last_id = this.getLastMessageID(userID, user_address, conversation);
    let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, created]);
    r.prev = last_id; /*?fixme to "none"?*/
+   // TODO: let's do the following after we switch to conversations as a separate table
    // TODO: to get rid of Mutex we can SELECT previous message ID as ID less than last message ID (r.id) AFTER INSERT.
    return r;
   });
