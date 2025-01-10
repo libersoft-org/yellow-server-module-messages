@@ -52,7 +52,7 @@ class Data extends DataGeneric {
  }
 
  async userGetMessage(userID: number, uid: string): Promise<Message | false> {
-  const res: Message[] = await this.db.query<Message[]>('SELECT id, id_users, uid, address_from, address_to, message, seen, created FROM messages WHERE uid = ? and id_users = ?', [uid, userID]);
+  const res: Message[] = await this.db.query<Message[]>('SELECT id, id_users, uid, address_from, address_to, message, format, seen, created FROM messages WHERE uid = ? and id_users = ?', [uid, userID]);
   return res.length === 1 ? res[0] : false;
  }
 
@@ -123,14 +123,11 @@ class Data extends DataGeneric {
     result = result.slice(0, -1);
    }
   }
-
   if (result.length === 0) return [];
-
   const prevPrevMessage = await this.getPrevMessages(userID, address_my, address_other, result[0].id, 1);
   if (prevPrevMessage.length === 0) {
    result[0].prev = 'none';
   }
-
   const nextNextMessage = await this.getNextMessages(userID, address_my, address_other, result[result.length - 1].id, 1);
   if (nextNextMessage.length === 0) {
    result[result.length - 1].next = 'none';
@@ -152,7 +149,7 @@ class Data extends DataGeneric {
   Log.debug('getPrevMessages', userID, address_my, address_other, base, count);
   const res3: Message[] = await this.db.query<Message>(
    `
-    SELECT id, uid, address_from, address_to, message, seen, created
+    SELECT id, uid, address_from, address_to, message, format, seen, created
     FROM messages
     WHERE id_users = ?
      AND (
@@ -172,7 +169,7 @@ class Data extends DataGeneric {
   Log.debug('getNextMessages', userID, address_my, address_other, base, count);
   const res4: Message[] = await this.db.query<Message>(
    `
-    SELECT id, uid, address_from, address_to, message, seen, created
+    SELECT id, uid, address_from, address_to, message, format, seen, created
     FROM messages
     WHERE id_users = ?
      AND (
