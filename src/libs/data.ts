@@ -39,10 +39,11 @@ class Data extends DataGeneric {
  }
 
  async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, format: string, created: Date | null = null): Promise<any> {
+  // TODO: after we switch to conversations as a separate table get rid of created parameter
   return await this.createMessageMutex.runExclusive(async () => {
-   Log.debug('data.createMessage: ', userID, uid, address_from, address_to, message);
+   Log.debug('!!!!!!!!!!!!!!!!data.createMessage: ', userID, uid, address_from, address_to, format, message);
    const last_id = this.getLastMessageID(userID, user_address, conversation);
-   let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, created) VALUES (?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, created]);
+   let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, format, created) VALUES (?, ?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, format, created]);
    r.prev = last_id; /*?fixme to "none"?*/
    // TODO: let's do the following after we switch to conversations as a separate table
    // TODO: to get rid of Mutex we can SELECT previous message ID as ID less than last message ID (r.id) AFTER INSERT.

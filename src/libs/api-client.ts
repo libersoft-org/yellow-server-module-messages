@@ -2,7 +2,17 @@ import { newLogger, ModuleApiBase } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
 let Log = newLogger('api-client');
 
+enum MessageFormat {
+ plaintext = 'plaintext',
+ html = 'html'
+}
+
 export class ApiClient extends ModuleApiBase {
+ // TODO: move this function to common:
+ isEnumValue(value: string): boolean {
+  return Object.values(MessageFormat).includes(value as MessageFormat);
+ }
+
  constructor(app) {
   super(app, ['new_message', 'seen_message', 'seen_inbox_message']);
   this.commands = { ...this.commands, message_send: { method: this.message_send.bind(this), reqUserSession: true }, message_seen: { method: this.message_seen.bind(this), reqUserSession: true }, messages_list: { method: this.messages_list.bind(this), reqUserSession: true }, conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true } };
@@ -25,13 +35,16 @@ export class ApiClient extends ModuleApiBase {
   const userFromDomain = await this.core.api.getDomainNameByID(userFromInfo.id_domains);
   const userFromAddress = userFromInfo.username + '@' + userFromDomain;
   if (!c.params.message) return { error: 7, message: 'Message is missing' };
-  if (!c.params.uid) return { error: 8, message: 'Message UID is missing' };
+  let format = c.params.format ? c.params.format : 'plaintext';
+  if (!this.isEnumValue(format)) return { error: 8, message: 'Invalid message format' };
+  if (!c.params.uid) return { error: 9, message: 'Message UID is missing' };
   const uid = c.params.uid;
   // TODO: don't define "created" here, rather do SELECT on table after INSERT
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
-  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, created);
+  console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
+  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
    uid,
@@ -44,7 +57,7 @@ export class ApiClient extends ModuleApiBase {
   this.signals.notifyUser(c.userID, 'new_message', msg1);
   if (userToID !== userFromInfo.id) {
    // TODO: don't use "created" here, rather do SELECT on table after INSERT
-   const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, created);
+   const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, format, created);
    const msg2 = {
     id: Number(msg2_insert.insertId),
     uid,
