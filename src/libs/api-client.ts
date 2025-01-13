@@ -52,6 +52,7 @@ export class ApiClient extends ModuleApiBase {
    address_from,
    address_to,
    message: c.params.message,
+   format,
    created
   };
   this.signals.notifyUser(c.userID, 'new_message', msg1);
@@ -65,6 +66,7 @@ export class ApiClient extends ModuleApiBase {
     address_from,
     address_to,
     message: c.params.message,
+    format,
     created
    };
    this.signals.notifyUser(userToID, 'new_message', msg2);
