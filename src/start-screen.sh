@@ -1,6 +1,6 @@
 #!/bin/sh
 
-bun i
+bun i --frozen-lockfile
 screen -dmS yellow-module-messages bash -c '
 echo -ne "\033]0;YELLOW MODULE MESSAGES\007"
 while true; do
