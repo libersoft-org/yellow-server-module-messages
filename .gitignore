@@ -1,5 +1,8 @@
 src/node_modules/
 src/settings.json
 src/*.log
+src/bun.lock
+src/bun.lockb
+src/bun.lockb.txt
 .secret_git
 .idea
