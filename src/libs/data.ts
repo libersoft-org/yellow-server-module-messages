@@ -1,5 +1,7 @@
 import { newLogger, DataGeneric } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
+import { FileUploadRecord } from './FileTransfer/types.ts'
+import * as changeKeys from "change-case/keys";
 
 let Log = newLogger('data');
 
@@ -38,6 +40,40 @@ class Data extends DataGeneric {
    Log.info(ex);
    process.exit(1);
   }
+ }
+
+ async createFileUpload(fileUploadRecord: FileUploadRecord) {
+  return await this.db.query(`
+   INSERT INTO file_uploads (
+    id, from_user_id, type, file_name, file_mime_type, file_size, file_path, chunk_size, temp_file_path, status
+   )
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   `,
+   [
+    fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.type, fileUploadRecord.fileName, fileUploadRecord.fileMimeType,
+    fileUploadRecord.fileSize, fileUploadRecord.filePath, fileUploadRecord.chunkSize, fileUploadRecord.tempFilePath,
+    fileUploadRecord.status
+   ]
+  )
+ }
+
+ async getFileUpload(id: string) {
+  const data = await this.db.query('SELECT * FROM file_uploads WHERE id = ?', [id]) as any;
+  let record = data?.[0];
+
+  if (record) {
+   record = changeKeys.camelCase(record) as FileUploadRecord;
+   record.chunksReceived = record.chunksReceived ? JSON.parse(record.chunksReceived) : [];
+  }
+
+  return record;
+ }
+
+ async updateFileUpload(id: string, data: Partial<FileUploadRecord>) {
+  const keys = Object.keys(data);
+  const values = Object.values(data);
+  const set = keys.map((key, i) => `${key} = ?`).join(', ');
+  return await this.db.query(`UPDATE file_uploads SET ${set} WHERE id = ?`, [...values, id]);
  }
 
  async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, created: Date = null): Promise<any> {
