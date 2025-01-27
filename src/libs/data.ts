@@ -1,6 +1,6 @@
 import { newLogger, DataGeneric } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import { FileUploadRecord } from './FileTransfer/types.ts'
+import {AttachmentRecord, FileUploadRecord} from './FileTransfer/types.ts'
 import * as changeKeys from "change-case/keys";
 
 let Log = newLogger('data');
@@ -36,6 +36,34 @@ class Data extends DataGeneric {
  async createDB(): Promise<void> {
   try {
    await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+   await this.db.query(`
+    DROP TABLE IF EXISTS \`attachments\`;
+    CREATE TABLE \`attachments\` (
+      \`id\` varchar(36) NOT NULL,
+      \`file_transfer_id\` varchar(36) NOT NULL,
+      \`user_id\` int(11) unsigned NOT NULL,
+      \`file_path\` text NOT NULL,
+      \`created\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
+  await this.db.query(`
+   DROP TABLE IF EXISTS \`file_uploads\`;
+   CREATE TABLE \`file_uploads\`
+   (
+    \`id\`              varchar(36)  NOT NULL,
+    \`from_user_id\`    int(11) unsigned NOT NULL,
+    \`type\`            varchar(255) NOT NULL,
+    \`status\`          varchar(255) NOT NULL,
+    \`file_name\`       text         NOT NULL,
+    \`file_mime_type\`  text         NOT NULL,
+    \`file_size\`       bigint(20) unsigned NOT NULL,
+    \`file_path\`       text         NOT NULL,
+    \`temp_file_path\`  text         NOT NULL,
+    \`chunk_size\`      int(10) unsigned NOT NULL,
+    \`chunks_received\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]',
+    \`created\`         timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `);
   } catch (ex) {
    Log.info(ex);
    process.exit(1);
@@ -44,10 +72,9 @@ class Data extends DataGeneric {
 
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
   return await this.db.query(`
-   INSERT INTO file_uploads (
-    id, from_user_id, type, file_name, file_mime_type, file_size, file_path, chunk_size, temp_file_path, status
-   )
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO file_uploads (id, from_user_id, type, file_name, file_mime_type, file_size, file_path, chunk_size,
+                              temp_file_path, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
    [
     fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.type, fileUploadRecord.fileName, fileUploadRecord.fileMimeType,
@@ -74,6 +101,30 @@ class Data extends DataGeneric {
   const values = Object.values(data);
   const set = keys.map((key, i) => `${key} = ?`).join(', ');
   return await this.db.query(`UPDATE file_uploads SET ${set} WHERE id = ?`, [...values, id]);
+ }
+
+ async createAttachment(attachmentRecord: AttachmentRecord) {
+  return await this.db.query(`
+   INSERT INTO attachments (id, user_id, file_transfer_id, file_path)
+   VALUES (?, ?, ?, ?)
+  `, [
+   attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath
+  ])
+ }
+
+ async getAttachmentsByFileTransferId(fileTransferId: string) {
+  let records = await this.db.query(`
+   SELECT *
+   FROM attachments
+   WHERE file_transfer_id = ?
+  `, [fileTransferId]
+  ) as AttachmentRecord[];
+
+  if (records) {
+   records = records.map(record => changeKeys.camelCase(record) as AttachmentRecord);
+  }
+
+  return records
  }
 
  async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, created: Date = null): Promise<any> {
