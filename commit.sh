@@ -1,7 +1,7 @@
 #!/bin/sh
 
-REPO="yellow-server-module-messages.git"
-NAME="Liberland Software Foundation"
+REPO="yellow-client.git"
+NAME="LiberSoft"
 BRANCH="main"
 EMAIL="info@libersoft.org"
 USER="libersoft-org"
@@ -28,17 +28,15 @@ if [ ! -d "./.git/" ]; then
 else
  git remote set-url origin https://$USER:$PASS@github.com/$USER/$REPO
 fi
-if ! [ -x "$(command -v prettier)" ]; then
- echo "Prettier not found, installing..."
- bun i -g prettier
-fi
-prettier --config prettier-libersoft.json --write "src/**/*.{js,ts,css,html}"
+bun i -g prettier prettier-plugin-svelte
+prettier --config prettier-libersoft.json --plugin 'prettier-plugin-svelte' --write "src/**/*.{js,ts,css,html,svelte}"
 git config user.name "$NAME"
 git config user.email "$EMAIL"
 git status
 git add .
 git status
 git commit -m "$1"
-git branch -M $BRANCH
-git push -u origin $BRANCH
+#git branch -M $BRANCH
+git push 
+# -u origin $BRANCH
 git status

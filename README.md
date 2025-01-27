@@ -1,11 +1,12 @@
-# Yellow Server - Module Messages
+# Yellow Client
 
-[![Created Badge](https://badges.pufler.dev/created/libersoft-org/yellow-server-module-messages)](https://badges.pufler.dev) [![Updated Badge](https://badges.pufler.dev/updated/libersoft-org/yellow-server-module-messages)](https://badges.pufler.dev) [![Visits Badge](https://badges.pufler.dev/visits/libersoft-org/yellow-server-module-messages)](https://badges.pufler.dev)
+[![Created Badge](https://badges.pufler.dev/created/libersoft-org/yellow-client)](https://badges.pufler.dev) [![Updated Badge](https://badges.pufler.dev/updated/libersoft-org/yellow-client)](https://badges.pufler.dev) [![Visits Badge](https://badges.pufler.dev/visits/libersoft-org/yellow-client)](https://badges.pufler.dev)
 
 ## Table of contents
 
 - [**About**](#about)
 - [**Installation**](#installation)
+- [**Debug mode**](#debug-mode)
 - [**License**](#license)
 - [**Contribution**](#contribution)
 - [**Donations**](#donations)
@@ -13,11 +14,15 @@
 
 ## About
 
-This is a module for instant messaging for [**Yellow Server**](https://github.com/libersoft-org/yellow-server/) application.
+This is the client software implementation of [**Yellow**](https://github.com/libersoft-org/yellow-documentation/) application.
 
 ## Installation
 
 - For installation instructions follow [**this document**](./INSTALL.md).
+
+## Debug mode
+
+- To run debug mode press **"CTRL + `"** (character under ESCAPE button) or **"CTRL + ;"** wherever in client app.
 
 ## License
 
@@ -40,4 +45,5 @@ Thank you for being a part of our projects' success!
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=libersoft-org/yellow-server-module-messages&type=Date)](https://star-history.com/#libersoft-org/yellow-server-module-messages&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=libersoft-org/yellow-client&type=Date)](https://star-history.com/#libersoft-org/yellow-client&Date)
+

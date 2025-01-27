@@ -1,12 +1,17 @@
-FROM oven/bun:latest
+FROM node:18
 
-# Install curl and tini
+ARG UID=1000
+ARG GID=1000
+
 RUN apt update && apt install -y curl tini
-
-# Use tini as the init system
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-USER 1000:1000
-WORKDIR /app/app/src/
+RUN mkdir -p /.npm && chown -R $UID:$GID /.npm
 
-CMD ["./start-docker-dev.sh"]
+ARG APP_DIR=/app/app/
+RUN mkdir -p $APP_DIR
+RUN chown $UID:$GID $APP_DIR
+USER $UID:$GID
+WORKDIR $APP_DIR
+
+CMD ./start-docker-dev.sh

@@ -1,8 +1,8 @@
-# Yellow Server - Module Messages - installation and configuration
+# Yellow Client - installation
+
+## 1. Download the latest version of this software
 
 These are the installation instructions of this software for the different Linux distributions.
-
-## 2. Module installation
 
 Log in as "root" on your server and run the following commands to download the necessary dependencies and the latest version of this software from GitHub:
 
@@ -11,119 +11,64 @@ Log in as "root" on your server and run the following commands to download the n
 ```sh
 apt update
 apt -y upgrade
-packages=("curl" "unzip" "git" "screen" "certbot")
-for package in "${packages[@]}"; do
- if ! dpkg -s "$package" >/dev/null 2>&1; then
-  apt -y install "$package"
- fi
-done
-if ! command -v bun >/dev/null 2>&1; then
- curl -fsSL https://bun.sh/install | bash
- source /root/.bashrc
-fi
-if ! dpkg -s mariadb-server mariadb-client >/dev/null 2>&1; then
- curl -LsS https://r.mariadb.com/downloads/mariadb_repo_setup | bash
- apt -y install mariadb-server mariadb-client
-fi
-git clone https://github.com/libersoft-org/yellow-server-module-messages.git
-cd yellow-server-module-messages/src/
+apt -y install git openssl
+curl -fsSL https://bun.sh/install | bash
+source /root/.bashrc
+git clone https://github.com/libersoft-org/yellow-client.git
+cd yellow-client/
+bun i
 ```
 
 ### CentOS / RHEL / Fedora Linux
 
 ```sh
 dnf -y update
-packages=("curl" "unzip" "git" "screen" "certbot")
-for package in "${packages[@]}"; do
- if ! rpm -q "$package" >/dev/null 2>&1; then
-  dnf -y install "$package"
- fi
-done
-if ! command -v bun >/dev/null 2>&1; then
- curl -fsSL https://bun.sh/install | bash
- source /root/.bashrc
-fi
-if ! rpm -q mariadb-server mariadb-client >/dev/null 2>&1; then
- curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | bash
- dnf -y install mariadb-server mariadb-client
-fi
-git clone https://github.com/libersoft-org/yellow-server-module-messages.git
-cd yellow-server-module-messages/src/
+dnf -y install git openssl
+curl -fsSL https://bun.sh/install | bash
+source /root/.bashrc
+git clone https://github.com/libersoft-org/yellow-client.git
+cd yellow-client/
+bun i
 ```
 
-## 3. Configuration
+## 2. Use this software
 
-### Create MariaDB user and database:
+If you'd like to **build this software from source code:
 
-Log in to MariaDB client as root:
+### Set up the URL path:
+
+Set the base URL path where you'd like to store your build on your web server by editing the **svelte.config.js** file:
+
+For example for **/client/**:
+
+```js
+base: process.env.NODE_ENV === 'production' ? '/client' : '',
+```
+
+or for **/**:
+
+```js
+base: process.env.NODE_ENV === 'production' ? '' : '',
+```
+
+After that use this command to build it:
 
 ```sh
-mariadb -u root -p
+./build.sh
 ```
 
-... and create a new user
+... and then move the content of your "**build**" folder to your web server.
 
-```sql
-CREATE USER 'yellow_module_org_libersoft_messages'@'localhost' IDENTIFIED BY 'password';
-CREATE DATABASE yellow_module_org_libersoft_messages;
-GRANT ALL ON yellow_module_org_libersoft_messages.* TO 'yellow_module_org_libersoft_messages'@'localhost';
-```
-
-### Create a new module settings file using:
+If you'd like to **run this software in developer mode**, first you need to create HTTPS certificate keys:
 
 ```sh
-./start.sh --create-settings
+openssl req -x509 -newkey rsa:2048 -nodes -days $(expr '(' $(date -d 2999/01/01 +%s) - $(date +%s) + 86399 ')' / 86400) -subj "/" -keyout server.key -out server.crt
 ```
 
-... and edit it to set up the database credentials and network port
-
-### Create database tables using:
+... then use this command to start the server in development mode:
 
 ```sh
-./start.sh --create-database
+./start-dev.sh
 ```
 
-### To edit additional configuration, just edit the "settings.json" file:
-
-- **web** section:
-  - **http_port** - your HTTP server's network port (ignored if you're not running a standalone server)
-  - **allow_network** - allow to run the web server through network (not just localhost)
-- **database** section:
-  - **host** - database host name
-  - **port** - database network port
-  - **user** - database user name
-  - **password** - database password
-  - **name** - database name
-- **other** section:
-  - **log_file** - the path to your log file (ignored if log_to_file is false)
-  - **log_to_file** - if you'd like to log to console and log file (true) or to console only (false)
-
-## 4. Start the module
-
-a) to start the module in **console**:
-
-```bash
-./start.sh
-```
-
-b) to start the module in **console** in **hot reload** (dev) mode:
-
-```bash
-./start-hot.sh
-```
-
-c) to start the module in **screen**:
-
-```bash
-./start-screen.sh
-```
-
-d) to start the module in **screen** in **hot reload** (dev) mode:
-
-```bash
-./start-hot-screen.sh
-```
-
-To detach screen press **CTRL+A** and then **CTRL+D**.
-
-To stop the module just press **CTRL+C**.
+... and then navigate to: https://YOUR_SERVER_ADDRESS:3000/ in your browser. Browser will show the certificate error, just skip it.
