@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import * as fsSync from 'fs'
 import {EventEmitter} from 'node:events'
 import {newLogger} from 'yellow-server-common'
+import {DownloadChunkP2PNotFoundError} from "./errors.ts";
 
 let Log = newLogger('FileTransferManager');
 
@@ -75,7 +76,7 @@ class FileTransferManager extends EventEmitter {
  async processChunkP2P (chunk: FileUploadChunk, record: FileUploadRecord) {
   record.chunksReceived.push(chunk.chunkId)
   const tempChunks = this.p2pTempChunks.get(chunk.uploadId) || []
-  tempChunks.push(chunk)
+  tempChunks[chunk.chunkId] = chunk
   this.p2pTempChunks.set(chunk.uploadId, tempChunks)
 
   if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) {
@@ -110,6 +111,37 @@ class FileTransferManager extends EventEmitter {
 
   this.records.set(foundRecord.id, foundRecord)
   return foundRecord
+ }
+
+ async getFileChunk (uploadId: string, offsetBytes: number, chunkSize: number) {
+  const record = await this.getRecord(uploadId)
+  const filePath = record.filePath + '/' + record.fileName
+  const file = Bun.file(filePath)
+  const blob = file.slice(offsetBytes, offsetBytes + chunkSize)
+  // blob to array
+  const buffer = await blob.bytes()
+
+  const chunk = {
+   chunkId: Math.floor(offsetBytes / chunkSize),
+   uploadId,
+   checksum: '',
+   // @ts-ignore
+   data: buffer.toBase64()
+  }
+
+  return {chunk}
+ }
+
+ async getFileChunkP2P (uploadId: string, chunkId: number) {
+  const record = await this.getRecord(uploadId)
+  const tempChunks = this.p2pTempChunks.get(uploadId) || []
+  const chunk = tempChunks[chunkId]
+
+  if (!chunk) {
+   throw new DownloadChunkP2PNotFoundError('Chunk not found')
+  }
+
+  return {chunk}
  }
 
  async downloadAttachment(record: FileUploadRecord, callback: (chunk: FileUploadChunk) => void) {

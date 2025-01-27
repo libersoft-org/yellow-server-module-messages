@@ -7,7 +7,9 @@ export enum FileUploadRecordStatus {
   BEGUN = 'BEGUN',
   UPLOADING = 'UPLOADING',
   FINISHED = 'FINISHED',
-  STOPPED = 'STOPPED',
+  CANCELED = 'CANCELED',
+  PAUSED = 'PAUSED',
+  ERROR = 'ERROR',
 }
 
 export interface FileUploadRecord {
@@ -27,6 +29,13 @@ export interface FileUploadRecord {
  chunksReceived: number[]
 }
 
+export interface AttachmentRecord {
+ id: string
+ userId: number
+ fileTransferId: string
+ filePath: string
+}
+
 export interface FileUploadChunk {
  chunkId: number
  uploadId: string
@@ -38,4 +47,9 @@ export enum FileTransferManagerEvents {
  UPLOAD_BEGIN = 'uploadBegin',
  AFTER_PROCESS_CHUNK = 'afterProcessChunk',
  UPLOAD_FINISH = 'uploadFinish',
+}
+
+export enum FileUploadRole {
+  SENDER = 'SENDER',
+  RECEIVER = 'RECEIVER',
 }
