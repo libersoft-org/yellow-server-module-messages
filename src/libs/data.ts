@@ -1,7 +1,7 @@
 import { newLogger, DataGeneric } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import {AttachmentRecord, FileUploadRecord} from './FileTransfer/types.ts'
-import * as changeKeys from "change-case/keys";
+import { AttachmentRecord, FileUploadRecord } from './FileTransfer/types.ts';
+import * as changeKeys from 'change-case/keys';
 
 let Log = newLogger('data');
 
@@ -46,7 +46,7 @@ class Data extends DataGeneric {
       \`created\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
-  await this.db.query(`
+   await this.db.query(`
    DROP TABLE IF EXISTS \`file_uploads\`;
    CREATE TABLE \`file_uploads\`
    (
@@ -71,21 +71,18 @@ class Data extends DataGeneric {
  }
 
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
-  return await this.db.query(`
+  return await this.db.query(
+   `
     INSERT INTO file_uploads (id, from_user_id, type, file_name, file_mime_type, file_size, file_path, chunk_size,
                               temp_file_path, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
-   [
-    fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.type, fileUploadRecord.fileName, fileUploadRecord.fileMimeType,
-    fileUploadRecord.fileSize, fileUploadRecord.filePath, fileUploadRecord.chunkSize, fileUploadRecord.tempFilePath,
-    fileUploadRecord.status
-   ]
-  )
+   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.type, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.filePath, fileUploadRecord.chunkSize, fileUploadRecord.tempFilePath, fileUploadRecord.status]
+  );
  }
 
  async getFileUpload(id: string) {
-  const data = await this.db.query('SELECT * FROM file_uploads WHERE id = ?', [id]) as any;
+  const data = (await this.db.query('SELECT * FROM file_uploads WHERE id = ?', [id])) as any;
   let record = data?.[0];
 
   if (record) {
@@ -104,27 +101,30 @@ class Data extends DataGeneric {
  }
 
  async createAttachment(attachmentRecord: AttachmentRecord) {
-  return await this.db.query(`
+  return await this.db.query(
+   `
    INSERT INTO attachments (id, user_id, file_transfer_id, file_path)
    VALUES (?, ?, ?, ?)
-  `, [
-   attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath
-  ])
+  `,
+   [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]
+  );
  }
 
  async getAttachmentsByFileTransferId(fileTransferId: string) {
-  let records = await this.db.query(`
+  let records = (await this.db.query(
+   `
    SELECT *
    FROM attachments
    WHERE file_transfer_id = ?
-  `, [fileTransferId]
-  ) as AttachmentRecord[];
+  `,
+   [fileTransferId]
+  )) as AttachmentRecord[];
 
   if (records) {
    records = records.map(record => changeKeys.camelCase(record) as AttachmentRecord);
   }
 
-  return records
+  return records;
  }
 
  async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, created: Date = null): Promise<any> {

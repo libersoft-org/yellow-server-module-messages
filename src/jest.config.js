@@ -1,20 +1,18 @@
 // require('dotenv').config();
 
 module.exports = {
- moduleFileExtensions: [
-  "ts",
-  "js"
- ],
+ moduleFileExtensions: ['ts', 'js'],
  transform: {
-  "^.+\\.(ts|tsx)$": ['ts-jest', {
-   tsconfig: "tsconfig.json"
-  }]
+  '^.+\\.(ts|tsx)$': [
+   'ts-jest',
+   {
+    tsconfig: 'tsconfig.json'
+   }
+  ]
  },
- testMatch: [
-  "**/test/**/*.test.(ts|js)"
- ],
- testEnvironment: "node",
+ testMatch: ['**/test/**/*.test.(ts|js)'],
+ testEnvironment: 'node',
  moduleNameMapper: {
-  "^@/(.*)$": "<rootDir>/src/$1"
+  '^@/(.*)$': '<rootDir>/src/$1'
  }
 };
