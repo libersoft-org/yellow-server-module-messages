@@ -96,6 +96,8 @@ class FileTransferManager extends EventEmitter {
    return record;
   }
 
+  console.log('id', id);
+
   // proceed to find record in database
   const foundRecord = await this.findRecord(id);
 

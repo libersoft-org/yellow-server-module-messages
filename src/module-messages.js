@@ -1,4 +1,4 @@
-import App from './libs/app.js';
+import App from './libs/app.ts';
 
 const app = new App();
 app.run();
