@@ -22,7 +22,7 @@ export class ApiClient extends ModuleApiBase {
  }
 
  constructor(app) {
-  super(app, ['new_message', 'seen_message', 'seen_inbox_message', 'upload_update', 'download_chunk', 'upload_p2p_accepted', 'ask_for_chunk']);
+  super(app, ['new_message', 'seen_message', 'seen_inbox_message', 'upload_update', 'download_chunk', 'ask_for_chunk']);
   this.commands = {
    ...this.commands,
    message_send: { method: this.message_send.bind(this), reqUserSession: true },
@@ -33,7 +33,6 @@ export class ApiClient extends ModuleApiBase {
    upload_chunk: { method: this.upload_chunk.bind(this), reqUserSession: true },
    upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
    upload_cancel: { method: this.upload_cancel.bind(this), reqUserSession: true },
-   download_attachment: { method: this.download_attachment.bind(this), reqUserSession: true },
    download_chunk: { method: this.download_chunk.bind(this), reqUserSession: true },
    upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
   };
@@ -45,35 +44,6 @@ export class ApiClient extends ModuleApiBase {
     findRecord: app.data.getFileUpload.bind(app.data)
    });
   });
- }
-
- async download_attachment(c) {
-  const { id } = c.params;
-  const record = await this.fileTransferManager.getRecord(id);
-  if (!record) return { error: 1, message: 'Record not found' };
-
-  if (record.type === FileUploadRecordType.SERVER) {
-   if (record.status !== FileUploadRecordStatus.FINISHED) return { error: 2, message: 'File is not ready' };
-
-   this.fileTransferManager.downloadAttachment(record, chunk => {
-    this.signals.notifyUser(c.userID, 'download_chunk', {
-     chunk
-    });
-   });
-  } else if (record.type === FileUploadRecordType.P2P) {
-   this.signals.notifyUser(record.fromUserId, 'upload_p2p_accepted', {
-    uploadId: record.id
-   });
-   this.fileTransferManager.downloadAttachmentP2P(record, chunk => {
-    this.signals.notifyUser(c.userID, 'download_chunk', {
-     chunk
-    });
-   });
-  } else {
-   return { error: 3, message: 'Unknown record type' };
-  }
-
-  return { error: 0 };
  }
 
  async download_chunk(c) {
