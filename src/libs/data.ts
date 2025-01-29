@@ -36,7 +36,8 @@ class Data extends DataGeneric {
   try {
    await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, format VARCHAR(16) NOT NULL DEFAULT "plaintext", seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
    await this.db.query(`
-    DROP TABLE IF EXISTS \`attachments\`;
+    DROP TABLE IF EXISTS \`attachments\`;`);
+   await this.db.query(`
     CREATE TABLE \`attachments\` (
       \`id\` varchar(36) NOT NULL,
       \`file_transfer_id\` varchar(36) NOT NULL,
@@ -46,7 +47,8 @@ class Data extends DataGeneric {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
    await this.db.query(`
-   DROP TABLE IF EXISTS \`file_uploads\`;
+   DROP TABLE IF EXISTS \`file_uploads\`;`);
+   await this.db.query(`
    CREATE TABLE \`file_uploads\`
    (
     \`id\`              varchar(36)  NOT NULL,
