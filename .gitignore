@@ -6,3 +6,4 @@ src/bun.lockb
 src/bun.lockb.txt
 .secret_git
 .idea
+uploads/*

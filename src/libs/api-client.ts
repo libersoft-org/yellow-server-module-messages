@@ -1,5 +1,10 @@
-import { newLogger, ModuleApiBase } from 'yellow-server-common';
+import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
+import FileTransferManager from './FileTransfer/FileTransferManager';
+import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
+import { makeAttachmentRecord } from './FileTransfer/utils';
+import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
+
 let Log = newLogger('api-client');
 
 enum MessageFormat {
@@ -8,15 +13,267 @@ enum MessageFormat {
 }
 
 export class ApiClient extends ModuleApiBase {
+ message_seen_mutex: Mutex;
+ fileTransferManager: FileTransferManager;
+
  // TODO: move this function to common:
  isEnumValue(value: string): boolean {
   return Object.values(MessageFormat).includes(value as MessageFormat);
  }
 
  constructor(app) {
-  super(app, ['new_message', 'seen_message', 'seen_inbox_message']);
-  this.commands = { ...this.commands, message_send: { method: this.message_send.bind(this), reqUserSession: true }, message_seen: { method: this.message_seen.bind(this), reqUserSession: true }, messages_list: { method: this.messages_list.bind(this), reqUserSession: true }, conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true } };
+  super(app, ['new_message', 'seen_message', 'seen_inbox_message', 'upload_update', 'download_chunk', 'ask_for_chunk']);
+  this.commands = {
+   ...this.commands,
+   message_send: { method: this.message_send.bind(this), reqUserSession: true },
+   message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
+   messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
+   conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
+   upload_begin: { method: this.upload_begin.bind(this), reqUserSession: true },
+   upload_chunk: { method: this.upload_chunk.bind(this), reqUserSession: true },
+   upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
+   upload_cancel: { method: this.upload_cancel.bind(this), reqUserSession: true },
+   download_chunk: { method: this.download_chunk.bind(this), reqUserSession: true },
+   upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
+  };
   this.message_seen_mutex = new Mutex();
+
+  // todo: MAKE THIS SYNC AFTER FIXING INIT!!!
+  setTimeout(() => {
+   this.fileTransferManager = new FileTransferManager({
+    findRecord: app.data.getFileUpload.bind(app.data)
+   });
+  });
+ }
+
+ async download_chunk(c) {
+  const { uploadId, offsetBytes, chunkSize } = c.params;
+
+  const record = await this.fileTransferManager.getRecord(uploadId);
+  if (!record) return { error: 1, message: 'Record not found' };
+
+  if (record.type === FileUploadRecordType.SERVER) {
+   const { chunk } = await this.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
+   return {
+    error: 0,
+    chunk
+   };
+  } else if (record.type === FileUploadRecordType.P2P) {
+   try {
+    // todo: change chunkId to offsetBytes and chunkSize to support dynamic chunk size in future
+    const chunkId = Math.floor(offsetBytes / chunkSize);
+    const { chunk } = await this.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
+
+    // prefetch
+    // todo: make better & support dynamic chunksize
+    const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId)
+    const chunksLength = existingP2PChunks?.length
+    const prefetchTolerance = 5
+    const prefetchDiff = chunksLength - prefetchTolerance
+    if (chunk.chunkId > prefetchDiff) {
+     const lastChunk = existingP2PChunks[chunksLength - 1]
+     if (lastChunk) {
+      this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
+       uploadId,
+       offsetBytes: lastChunk.chunkId * chunkSize,
+       chunkSize
+      });
+     }
+    }
+
+    return {
+     error: 0,
+     chunk
+    };
+   } catch (e) {
+    if (e instanceof DownloadChunkP2PNotFoundError) {
+     this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
+      uploadId,
+      offsetBytes,
+      chunkSize
+     });
+     return { error: 2, message: 'Wait for chunk' };
+    } else {
+     return { error: 3, message: 'Chunk could not be obtained' };
+    }
+   }
+  } else {
+   return { error: 4, message: 'Unknown record type' };
+  }
+ }
+
+ async upload_begin(c) {
+  const { records, recipients } = c.params;
+
+  if (!records) return { error: 1, message: 'Records are missing' };
+  if (!recipients) return { error: 2, message: 'Recipients are missing' };
+
+  const allowedRecords = [];
+  const disallowedRecords = [];
+  for (let record of records) {
+   const { id, fileName, fileMimeType, fileSize, type } = record;
+   const updatedRecord = await this.fileTransferManager.uploadBegin({
+    id,
+    fromUserId: c.userID,
+    type,
+    fileName,
+    fileMimeType,
+    fileSize,
+    filePath: 'uploads/message-attachments'
+   });
+   await this.app.data.createFileUpload(updatedRecord);
+
+   // create attachment for sender
+   await this.app.data.createAttachment(
+    makeAttachmentRecord({
+     userId: c.userID,
+     fileTransferId: updatedRecord.id,
+     filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+    })
+   );
+
+   // create attachments for each recipient
+   for (let recipientAddress of recipients) {
+    // todo: refactor this to a separate function
+    let [usernameTo, domainTo] = recipientAddress.split('@');
+    if (!usernameTo || !domainTo) {
+     Log.error('Invalid username format', recipientAddress);
+     continue;
+    }
+    usernameTo = usernameTo.toLowerCase();
+    domainTo = domainTo.toLowerCase();
+
+    const domainToID = await this.core.api.getDomainIDByName(domainTo);
+
+    if (!domainToID) {
+     Log.error('Domain name not found on this server', domainTo);
+     continue;
+    }
+    const userToID = await this.core.api.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
+
+    await this.app.data.createAttachment(
+     makeAttachmentRecord({
+      userId: userToID,
+      fileTransferId: updatedRecord.id,
+      filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+     })
+    );
+   }
+
+   allowedRecords.push(updatedRecord);
+  }
+
+  return { error: 0, message: 'Upload started', allowedRecords, disallowedRecords };
+ }
+
+ async upload_cancel(c) {
+  const { uploadId } = c.params;
+  const record = await this.fileTransferManager.getRecord(uploadId);
+  if (!record) return { error: 1, message: 'Record not found' };
+  record.status = FileUploadRecordStatus.CANCELED;
+  await this.app.data.updateFileUpload(record.id, {
+   status: FileUploadRecordStatus.CANCELED
+  });
+  await this.send_upload_update_notification(record, [c.userID]);
+  return { error: 0, message: 'Upload canceled' };
+ }
+
+ async upload_update_status(c) {
+  const { uploadId, status: newStatus } = c.params;
+  const record = await this.fileTransferManager.getRecord(uploadId);
+  if (!record) return { error: 1, message: 'Record not found' };
+
+  const updateStatusAndSendNotification = async status => {
+   await this.app.data.updateFileUpload(record.id, {
+    status
+   });
+   record.status = status;
+   await this.send_upload_update_notification(record);
+  };
+
+  if (newStatus === FileUploadRecordStatus.CANCELED) {
+   if (record.status !== FileUploadRecordStatus.UPLOADING || record.status !== FileUploadRecordStatus.BEGUN || record.status !== FileUploadRecordStatus.PAUSED || record.status !== FileUploadRecordStatus.CANCELED) {
+    return { error: 3, message: 'Invalid status change to CANCELED from ' + record.status };
+   }
+   await updateStatusAndSendNotification(FileUploadRecordStatus.CANCELED);
+  } else if (newStatus === FileUploadRecordStatus.PAUSED) {
+   if (record.status !== FileUploadRecordStatus.UPLOADING) {
+    return { error: 3, message: 'Invalid status change to PAUSED from ' + record.status };
+   }
+   await updateStatusAndSendNotification(FileUploadRecordStatus.PAUSED);
+  } else if (newStatus === FileUploadRecordStatus.UPLOADING) {
+   if (record.status !== FileUploadRecordStatus.PAUSED) {
+    return { error: 3, message: 'Invalid status change to UPLOADING from ' + record.status };
+   }
+   await updateStatusAndSendNotification(FileUploadRecordStatus.UPLOADING);
+  } else {
+   return { error: 2, message: 'Invalid status: ' + record.status };
+  }
+
+  return { error: 0, message: 'Upload updated' };
+ }
+
+ async upload_chunk(c) {
+  const { chunk } = c.params;
+  const process = await this.fileTransferManager.processChunk(chunk);
+  const { record } = process;
+
+  await this.app.data.updateFileUpload(record.id, {
+   chunks_received: JSON.stringify(record.chunksReceived),
+   status: FileUploadRecordStatus.UPLOADING
+  });
+
+  if (record.status === FileUploadRecordStatus.BEGUN) {
+   record.status = FileUploadRecordStatus.UPLOADING;
+   this.send_upload_update_notification(record);
+  }
+
+  // check if finished
+  if (record.status === FileUploadRecordStatus.FINISHED) {
+   await this.app.data.updateFileUpload(record.id, {
+    status: FileUploadRecordStatus.FINISHED
+   });
+   this.send_upload_update_notification(record);
+  }
+
+  return { error: 0, message: 'Chunk accepted' };
+ }
+
+ async upload_get(c) {
+  const { id } = c.params;
+  const record = await this.fileTransferManager.getRecord(id);
+  //const record = await this.fileTransferManager.getRecord(id)
+
+  // check file access permission
+  const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
+  if (!owners.some(owner => owner.userId === c.userID)) {
+   return { error: 1, message: 'You are not allowed to access this record' };
+  }
+
+  Log.debug('upload_get', id, record);
+  if (!record) return { error: 1, message: 'Record not found' };
+  return {
+   error: 0,
+   data: {
+    record,
+    uploadData: {
+     role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
+    }
+   }
+  };
+ }
+
+ async send_upload_update_notification(record, ignoreUserIds = []) {
+  this.app.data.getAttachmentsByFileTransferId(record.id).then(attachments => {
+   for (let attachment of attachments) {
+    if (ignoreUserIds.includes(attachment.userId)) {
+     continue;
+    }
+    this.signals.notifyUser(attachment.userId, 'upload_update', {
+     record
+    });
+   }
+  });
  }
 
  async message_send(c) {
