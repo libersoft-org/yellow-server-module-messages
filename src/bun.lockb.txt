@@ -3314,8 +3314,8 @@ yargs-parser@^21.1.1:
   integrity sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==
 
 "yellow-server-common@https://github.com/libersoft-org/yellow-server-common":
-  version "github:libersoft-org/yellow-server-common#3cf10ef"
-  resolved "github:libersoft-org/yellow-server-common#3cf10ef"
+  version "github:libersoft-org/yellow-server-common#1e9872f"
+  resolved "github:libersoft-org/yellow-server-common#1e9872f"
   dependencies:
     "@elastic/ecs-pino-format" "^1.5.0"
     async-mutex "^0.5.0"
