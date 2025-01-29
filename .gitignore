@@ -7,3 +7,4 @@ src/bun.lockb.txt
 .secret_git
 .idea
 uploads/*
+src/uploads/*
