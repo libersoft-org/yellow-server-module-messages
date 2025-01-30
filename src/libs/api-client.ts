@@ -2,9 +2,9 @@ import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
 import FileTransferManager from './FileTransfer/FileTransferManager';
 import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
-import {makeAttachmentRecord, pickFileUploadRecordFields} from './FileTransfer/utils';
+import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
-import {UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND} from "./FileTransfer/constants.ts";
+import { UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND } from './FileTransfer/constants.ts';
 
 let Log = newLogger('api-client');
 
@@ -302,7 +302,7 @@ export class ApiClient extends ModuleApiBase {
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
-  console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
+  //console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
