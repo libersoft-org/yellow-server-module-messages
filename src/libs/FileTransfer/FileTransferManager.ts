@@ -51,7 +51,7 @@ class FileTransferManager extends EventEmitter {
  async processChunkServer(chunk: FileUploadChunk, record: FileUploadRecord) {
   try {
    const buffer = Buffer.from(chunk.data, 'base64');
-   console.log('appendFile(record.tempFilePath, buffer)', record.tempFilePath, buffer.length);
+   //console.log('appendFile(record.tempFilePath, buffer)', record.tempFilePath, buffer.length);
    await fs.appendFile(record.tempFilePath, buffer);
    record.chunksReceived.push(chunk.chunkId);
    // this.emit(FileTransferManagerEvents.AFTER_PROCESS_CHUNK, {record, chunk})
@@ -86,7 +86,7 @@ class FileTransferManager extends EventEmitter {
   record.status = FileUploadRecordStatus.FINISHED;
   // move temp file to final location
   let dst = record.filePath + '/' + record.fileName;
-  console.log('rename', record.tempFilePath, dst);
+  //console.log('rename', record.tempFilePath, dst);
   await fs.rename(record.tempFilePath, dst);
   // this.emit(FileTransferManagerEvents.UPLOAD_FINISH, {record})
   return { record };
@@ -99,7 +99,7 @@ class FileTransferManager extends EventEmitter {
    return record;
   }
 
-  console.log('id', id);
+  //console.log('id', id);
 
   // proceed to find record in database
   const foundRecord = await this.findRecord(id);
