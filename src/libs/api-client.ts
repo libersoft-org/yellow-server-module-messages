@@ -252,7 +252,6 @@ export class ApiClient extends ModuleApiBase {
    return { error: 1, message: 'You are not allowed to access this record' };
   }
 
-  Log.debug('upload_get', id, record);
   if (!record) return { error: 1, message: 'Record not found' };
   return {
    error: 0,
