@@ -40,7 +40,7 @@ export class ApiClient extends ModuleApiBase {
   };
   this.message_seen_mutex = new Mutex();
 
-  // todo: MAKE THIS SYNC AFTER FIXING INIT!!!
+  // todo: MAKE THIS SYNC AFTER FIXING INIT!!! // todo: don't do this before app start
   setTimeout(() => {
    this.fileTransferManager = new FileTransferManager({
     findRecord: app.data.getFileUpload.bind(app.data)
@@ -68,12 +68,12 @@ export class ApiClient extends ModuleApiBase {
 
     // prefetch
     // todo: make better & support dynamic chunksize
-    const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId)
-    const chunksLength = existingP2PChunks?.length
-    const prefetchTolerance = 5
-    const prefetchDiff = chunksLength - prefetchTolerance
+    const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId);
+    const chunksLength = existingP2PChunks?.length;
+    const prefetchTolerance = 5;
+    const prefetchDiff = chunksLength - prefetchTolerance;
     if (chunk.chunkId > prefetchDiff) {
-     const lastChunk = existingP2PChunks[chunksLength - 1]
+     const lastChunk = existingP2PChunks[chunksLength - 1];
      if (lastChunk) {
       this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
        uploadId,
