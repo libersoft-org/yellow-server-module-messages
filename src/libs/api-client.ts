@@ -2,8 +2,9 @@ import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
 import FileTransferManager from './FileTransfer/FileTransferManager';
 import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
-import { makeAttachmentRecord } from './FileTransfer/utils';
+import {makeAttachmentRecord, pickFileUploadRecordFields} from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
+import {UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND} from "./FileTransfer/constants.ts";
 
 let Log = newLogger('api-client');
 
@@ -29,6 +30,7 @@ export class ApiClient extends ModuleApiBase {
    message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
    messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
    conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
+
    upload_begin: { method: this.upload_begin.bind(this), reqUserSession: true },
    upload_chunk: { method: this.upload_chunk.bind(this), reqUserSession: true },
    upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
@@ -192,7 +194,7 @@ export class ApiClient extends ModuleApiBase {
   };
 
   if (newStatus === FileUploadRecordStatus.CANCELED) {
-   if (record.status !== FileUploadRecordStatus.UPLOADING || record.status !== FileUploadRecordStatus.BEGUN || record.status !== FileUploadRecordStatus.PAUSED || record.status !== FileUploadRecordStatus.CANCELED) {
+   if (record.status !== FileUploadRecordStatus.UPLOADING || record.status !== FileUploadRecordStatus.BEGUN || record.status !== FileUploadRecordStatus.PAUSED) {
     return { error: 3, message: 'Invalid status change to CANCELED from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.CANCELED);
@@ -255,7 +257,7 @@ export class ApiClient extends ModuleApiBase {
   return {
    error: 0,
    data: {
-    record,
+    record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
     uploadData: {
      role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
     }
@@ -270,7 +272,7 @@ export class ApiClient extends ModuleApiBase {
      continue;
     }
     this.signals.notifyUser(attachment.userId, 'upload_update', {
-     record
+     record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND)
     });
    }
   });
