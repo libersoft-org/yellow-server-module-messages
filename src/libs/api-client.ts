@@ -44,6 +44,7 @@ export class ApiClient extends ModuleApiBase {
   setTimeout(() => {
    this.fileTransferManager = new FileTransferManager({
     findRecord: app.data.getFileUpload.bind(app.data)
+    //getUserAddressByID: app.core.api.getUserAddressByID,
    });
   });
  }

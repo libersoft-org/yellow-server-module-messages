@@ -1,4 +1,4 @@
-import { makeFileUploadRecord } from './utils.ts';
+import { makeFileUploadRecord, sanitizeFilesystemPath } from './utils.ts';
 import { type FileUploadChunk, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
 import fs from 'node:fs/promises';
 import * as fsSync from 'fs';
@@ -28,7 +28,7 @@ class FileTransferManager extends EventEmitter {
    fileSize: data.fileSize,
    filePath: data.filePath,
    chunkSize: 1024 * 64,
-   tempFilePath: 'uploads/' + data.id + '-' + data.fileName //+ '.tmp'
+   tempFilePath: 'uploads/' + /*sanitizeFilesystemPath( await this.getUserAddressByID(data.fromUserId) ) + */ data.id + '-' + data.fileName //+ '.tmp'
    // tempFilePath: data.filePath + '/' + data.fileName //+ '.tmp'
   });
 

@@ -29,15 +29,16 @@ export function makeAttachmentRecord(data: MakeAttachmentRecordData): Attachment
  return Object.assign(defaults, data);
 }
 
-export function pickFileUploadRecordFields<K extends keyof FileUploadRecord>(
- record: FileUploadRecord,
- keepFields: K[]
-): Pick<FileUploadRecord, K> {
+export function pickFileUploadRecordFields<K extends keyof FileUploadRecord>(record: FileUploadRecord, keepFields: K[]): Pick<FileUploadRecord, K> {
  const filteredRecord = {} as Pick<FileUploadRecord, K>;
- keepFields.forEach((field) => {
+ keepFields.forEach(field => {
   if (field in record) {
    filteredRecord[field] = record[field];
   }
  });
  return filteredRecord;
+}
+
+export function sanitizeFilesystemPath(path: string): string {
+ return path; //TODO
 }
