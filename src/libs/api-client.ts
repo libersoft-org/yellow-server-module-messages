@@ -68,19 +68,21 @@ export class ApiClient extends ModuleApiBase {
     const { chunk } = await this.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
 
     // prefetch
-    // todo: make better & support dynamic chunksize
+    // todo: make better & support dynamic chunksize in future
     const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId);
     const chunksLength = existingP2PChunks?.length;
-    const prefetchTolerance = 5;
-    const prefetchDiff = chunksLength - prefetchTolerance;
-    if (chunk.chunkId > prefetchDiff) {
-     const lastChunk = existingP2PChunks[chunksLength - 1];
-     if (lastChunk) {
-      this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
-       uploadId,
-       offsetBytes: lastChunk.chunkId * chunkSize,
-       chunkSize
-      });
+    if (chunksLength) {
+     const prefetchTolerance = 10;
+     const prefetchDiff = chunksLength - prefetchTolerance;
+     if (chunk.chunkId >= prefetchDiff) {
+      const lastChunk = existingP2PChunks[chunksLength - 1];
+      if (lastChunk) {
+       this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
+        uploadId,
+        offsetBytes: lastChunk.chunkId * chunkSize,
+        chunkSize
+       });
+      }
      }
     }
 
@@ -105,6 +107,56 @@ export class ApiClient extends ModuleApiBase {
   }
  }
 
+ async upload_chunk(c) {
+  const { chunk } = c.params;
+  const process = await this.fileTransferManager.processChunk(chunk);
+  const { record } = process;
+
+  await this.app.data.updateFileUpload(record.id, {
+   chunks_received: JSON.stringify(record.chunksReceived),
+   status: FileUploadRecordStatus.UPLOADING
+  });
+
+  if (record.status === FileUploadRecordStatus.BEGUN) {
+   record.status = FileUploadRecordStatus.UPLOADING;
+   this.send_upload_update_notification(record);
+  }
+
+  // check if finished
+  // todo: check if its ok for p2p
+  if (record.status === FileUploadRecordStatus.FINISHED) {
+   await this.app.data.updateFileUpload(record.id, {
+    status: FileUploadRecordStatus.FINISHED
+   });
+   this.send_upload_update_notification(record);
+  }
+
+  return { error: 0, message: 'Chunk accepted' };
+ }
+
+ async upload_get(c) {
+  const { id } = c.params;
+  const record = await this.fileTransferManager.getRecord(id);
+  //const record = await this.fileTransferManager.getRecord(id)
+
+  // check file access permission
+  const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
+  if (!owners.some(owner => owner.userId === c.userID)) {
+   return { error: 1, message: 'You are not allowed to access this record' };
+  }
+
+  if (!record) return { error: 1, message: 'Record not found' };
+  return {
+   error: 0,
+   data: {
+    record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
+    uploadData: {
+     role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
+    }
+   }
+  };
+ }
+
  async upload_begin(c) {
   const { records, recipients } = c.params;
 
@@ -114,7 +166,7 @@ export class ApiClient extends ModuleApiBase {
   const allowedRecords = [];
   const disallowedRecords = [];
   for (let record of records) {
-   const { id, fileName, fileMimeType, fileSize, type } = record;
+   const { id, fileName, fileMimeType, fileSize, type, chunkSize } = record;
    const updatedRecord = await this.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
@@ -122,7 +174,8 @@ export class ApiClient extends ModuleApiBase {
     fileName,
     fileMimeType,
     fileSize,
-    filePath: 'uploads/message-attachments'
+    filePath: 'uploads/message-attachments',
+    chunkSize
    });
    await this.app.data.createFileUpload(updatedRecord);
 
@@ -214,55 +267,6 @@ export class ApiClient extends ModuleApiBase {
   }
 
   return { error: 0, message: 'Upload updated' };
- }
-
- async upload_chunk(c) {
-  const { chunk } = c.params;
-  const process = await this.fileTransferManager.processChunk(chunk);
-  const { record } = process;
-
-  await this.app.data.updateFileUpload(record.id, {
-   chunks_received: JSON.stringify(record.chunksReceived),
-   status: FileUploadRecordStatus.UPLOADING
-  });
-
-  if (record.status === FileUploadRecordStatus.BEGUN) {
-   record.status = FileUploadRecordStatus.UPLOADING;
-   this.send_upload_update_notification(record);
-  }
-
-  // check if finished
-  if (record.status === FileUploadRecordStatus.FINISHED) {
-   await this.app.data.updateFileUpload(record.id, {
-    status: FileUploadRecordStatus.FINISHED
-   });
-   this.send_upload_update_notification(record);
-  }
-
-  return { error: 0, message: 'Chunk accepted' };
- }
-
- async upload_get(c) {
-  const { id } = c.params;
-  const record = await this.fileTransferManager.getRecord(id);
-  //const record = await this.fileTransferManager.getRecord(id)
-
-  // check file access permission
-  const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
-  if (!owners.some(owner => owner.userId === c.userID)) {
-   return { error: 1, message: 'You are not allowed to access this record' };
-  }
-
-  if (!record) return { error: 1, message: 'Record not found' };
-  return {
-   error: 0,
-   data: {
-    record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
-    uploadData: {
-     role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
-    }
-   }
-  };
  }
 
  async send_upload_update_notification(record, ignoreUserIds = []) {
