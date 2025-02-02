@@ -156,10 +156,12 @@ export class ApiClient extends ModuleApiBase {
   const allowedRecords = [];
   const disallowedRecords = [];
   for (let record of records) {
-   const { id, fileName, fileMimeType, fileSize, type, chunkSize } = record;
+   const { id, fileName, fileMimeType, fileSize, type, chunkSize, fromUserUid } = record;
+   console.log('AAAAAAA', c);
    const updatedRecord = await this.app.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
+    fromUserUid,
     type,
     fileName,
     fileMimeType,
@@ -252,6 +254,8 @@ export class ApiClient extends ModuleApiBase {
     return { error: 3, message: 'Invalid status change to UPLOADING from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.UPLOADING);
+  } else if (newStatus === FileUploadRecordStatus.ERROR) {
+   await updateStatusAndSendNotification(FileUploadRecordStatus.ERROR);
   } else {
    return { error: 2, message: 'Invalid status: ' + record.status };
   }

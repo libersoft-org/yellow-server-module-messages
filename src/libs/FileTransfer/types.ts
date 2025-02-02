@@ -15,6 +15,7 @@ export enum FileUploadRecordStatus {
 export interface FileUploadRecord {
  id: string;
  fromUserId: number;
+ fromUserUid: string;
  type: FileUploadRecordType;
  status: FileUploadRecordStatus;
 

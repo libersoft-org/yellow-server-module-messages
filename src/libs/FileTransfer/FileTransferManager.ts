@@ -18,7 +18,7 @@ class FileTransferManager extends EventEmitter {
   this.findRecord = settings.findRecord;
  }
 
- async uploadBegin(data: Pick<FileUploadRecord, 'id' | 'fromUserId' | 'type' | 'fileName' | 'fileMimeType' | 'fileSize' | 'filePath' | 'chunkSize'>) {
+ async uploadBegin(data: Pick<FileUploadRecord, 'id' | 'fromUserId' | 'fromUserUid' | 'type' | 'fileName' | 'fileMimeType' | 'fileSize' | 'filePath' | 'chunkSize'>) {
   const record = makeFileUploadRecord({
    id: data.id,
    fromUserId: data.fromUserId,
@@ -28,6 +28,7 @@ class FileTransferManager extends EventEmitter {
    fileSize: data.fileSize,
    filePath: data.filePath,
    chunkSize: data.chunkSize,
+   fromUserUid: data.fromUserUid,
    tempFilePath: 'uploads/' + data.id + '-' + data.fileName //+ '.tmp'
    // tempFilePath: data.filePath + '/' + data.fileName //+ '.tmp'
   });
