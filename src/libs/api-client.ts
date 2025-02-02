@@ -1,6 +1,5 @@
 import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import FileTransferManager from './FileTransfer/FileTransferManager';
 import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
 import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
@@ -15,7 +14,6 @@ enum MessageFormat {
 
 export class ApiClient extends ModuleApiBase {
  message_seen_mutex: Mutex;
- fileTransferManager: FileTransferManager;
 
  // TODO: move this function to common:
  isEnumValue(value: string): boolean {
@@ -39,24 +37,16 @@ export class ApiClient extends ModuleApiBase {
    upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
   };
   this.message_seen_mutex = new Mutex();
-
-  // todo: MAKE THIS SYNC AFTER FIXING INIT!!! // todo: don't do this before app start
-  setTimeout(() => {
-   this.fileTransferManager = new FileTransferManager({
-    findRecord: app.data.getFileUpload.bind(app.data)
-    //getUserAddressByID: app.core.api.getUserAddressByID,
-   });
-  });
  }
 
  async download_chunk(c) {
   const { uploadId, offsetBytes, chunkSize } = c.params;
 
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
 
   if (record.type === FileUploadRecordType.SERVER) {
-   const { chunk } = await this.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
+   const { chunk } = await this.app.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
    return {
     error: 0,
     chunk
@@ -65,11 +55,11 @@ export class ApiClient extends ModuleApiBase {
    try {
     // todo: change chunkId to offsetBytes and chunkSize to support dynamic chunk size in future
     const chunkId = Math.floor(offsetBytes / chunkSize);
-    const { chunk } = await this.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
+    const { chunk } = await this.app.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
 
     // prefetch
     // todo: make better & support dynamic chunksize in future
-    const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId);
+    const existingP2PChunks = this.app.fileTransferManager.p2pTempChunks.get(uploadId);
     const chunksLength = existingP2PChunks?.length;
     if (chunksLength) {
      const prefetchTolerance = 10;
@@ -109,7 +99,7 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_chunk(c) {
   const { chunk } = c.params;
-  const process = await this.fileTransferManager.processChunk(chunk);
+  const process = await this.app.fileTransferManager.processChunk(chunk);
   const { record } = process;
 
   await this.app.data.updateFileUpload(record.id, {
@@ -136,8 +126,8 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_get(c) {
   const { id } = c.params;
-  const record = await this.fileTransferManager.getRecord(id);
-  //const record = await this.fileTransferManager.getRecord(id)
+  const record = await this.app.fileTransferManager.getRecord(id);
+  //const record = await this.app.fileTransferManager.getRecord(id)
 
   // check file access permission
   const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
@@ -167,7 +157,7 @@ export class ApiClient extends ModuleApiBase {
   const disallowedRecords = [];
   for (let record of records) {
    const { id, fileName, fileMimeType, fileSize, type, chunkSize } = record;
-   const updatedRecord = await this.fileTransferManager.uploadBegin({
+   const updatedRecord = await this.app.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
     type,
@@ -224,7 +214,7 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_cancel(c) {
   const { uploadId } = c.params;
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
   record.status = FileUploadRecordStatus.CANCELED;
   await this.app.data.updateFileUpload(record.id, {
@@ -236,7 +226,7 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_update_status(c) {
   const { uploadId, status: newStatus } = c.params;
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
 
   const updateStatusAndSendNotification = async status => {

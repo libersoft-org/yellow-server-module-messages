@@ -2,6 +2,7 @@ import Data from './data';
 import { ApiClient } from './api-client';
 import { ModuleAppBase } from 'yellow-server-common';
 import path from 'path';
+import FileTransferManager from './FileTransfer/FileTransferManager.ts';
 
 interface Settings {
  web: {
@@ -25,6 +26,7 @@ class App extends ModuleAppBase {
  defaultSettings: Settings;
  api: ApiClient;
  data: Data;
+ public fileTransferManager: FileTransferManager;
 
  constructor() {
   const info = {
@@ -55,6 +57,10 @@ class App extends ModuleAppBase {
 
  async init() {
   this.data = new Data(this.info.settings.database);
+  this.fileTransferManager = new FileTransferManager({
+   findRecord: this.data.getFileUpload.bind(this.data)
+   //getUserAddressByID: app.core.api.getUserAddressByID,
+  });
  }
 }
 
