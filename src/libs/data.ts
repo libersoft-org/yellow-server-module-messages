@@ -62,7 +62,7 @@ class Data extends DataGeneric {
      \`temp_file_path\`  text         NOT NULL,
      \`chunk_size\`      int(10) unsigned NOT NULL,
      \`chunks_received\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]',
-     \`created\`         timestamp    NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE current_timestamp()
+     \`created\`         timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
   } catch (ex) {
