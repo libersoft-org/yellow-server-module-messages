@@ -59,6 +59,7 @@ class App extends ModuleAppBase {
   this.data = new Data(this.info.settings.database);
   this.fileTransferManager = new FileTransferManager({
    findRecord: this.data.getFileUpload.bind(this.data)
+   //getUserAddressByID: app.core.api.getUserAddressByID,
   });
  }
 }

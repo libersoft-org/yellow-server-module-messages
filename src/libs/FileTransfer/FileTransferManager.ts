@@ -29,7 +29,7 @@ class FileTransferManager extends EventEmitter {
    filePath: data.filePath,
    chunkSize: data.chunkSize,
    fromUserUid: data.fromUserUid,
-   tempFilePath: 'uploads/' + data.id + '-' + data.fileName //+ '.tmp'
+   tempFilePath: 'uploads/' + /*sanitizeFilesystemPath( await this.getUserAddressByID(data.fromUserId) ) + */ data.id + '-' + data.fileName //+ '.tmp'
    // tempFilePath: data.filePath + '/' + data.fileName //+ '.tmp'
   });
 

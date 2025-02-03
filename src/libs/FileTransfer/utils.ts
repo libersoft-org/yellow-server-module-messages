@@ -38,3 +38,7 @@ export function pickFileUploadRecordFields<K extends keyof FileUploadRecord>(rec
  });
  return filteredRecord;
 }
+
+export function sanitizeFilesystemPath(path: string): string {
+ return path; //TODO
+}
