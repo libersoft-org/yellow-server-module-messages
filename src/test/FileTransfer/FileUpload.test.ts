@@ -1,5 +1,5 @@
 import FileUpload from '../../libs/FileTransfer/FileUpload';
-import { makeFileUploadRecord } from '../../libs/FileTransfer/utils';
+import { makeServerFileUploadRecord } from '../../libs/FileTransfer/utils';
 import { FileUploadRecordType } from '../../libs/FileTransfer/types';
 
 import * as fs from 'node:fs/promises';
@@ -9,12 +9,12 @@ describe('works', () => {
   const testFileName = 'file-to-upload-1.png';
   const testFilePath = 'test/_resources';
 
-  const record = makeFileUploadRecord({
+  const record = makeServerFileUploadRecord({
    type: FileUploadRecordType.SERVER,
    fileName: 'file-to-upload-1.png',
    fileMimeType: 'image/jpeg',
    fileSize: 4086,
-   filePath: 'test/_uploads/file-transfer',
+   fileFolder: 'test/_uploads/file-transfer',
    tempFilePath: 'test/_uploads/file-transfer/test.jpg',
    chunkSize: 1024
   });

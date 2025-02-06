@@ -49,19 +49,21 @@ class Data extends DataGeneric {
     DROP TABLE IF EXISTS file_uploads;
     CREATE TABLE file_uploads
     (
-     id              varchar(36)  NOT NULL,
-     from_user_id    int(11) unsigned NOT NULL,
-     from_user_uid   varchar(255) NOT NULL,
-     type            varchar(255) NOT NULL,
-     status          varchar(255) NOT NULL,
-     file_name       text         NOT NULL,
-     file_mime_type  text         NOT NULL,
-     file_size       bigint(20) unsigned NOT NULL,
-     file_path       text         NOT NULL,
-     temp_file_path  text         NOT NULL,
-     chunk_size      int(10) unsigned NOT NULL,
-     chunks_received longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]',
-     created         timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+     id                 varchar(36)  NOT NULL,
+     from_user_id       int(11) unsigned NOT NULL,
+     from_user_uid      varchar(255) NOT NULL,
+     type               varchar(255) NOT NULL,
+     status             varchar(255) NOT NULL,
+     file_original_name text         NOT NULL,
+     file_mime_type     text         NOT NULL,
+     file_size          bigint(20) unsigned NOT NULL,
+     file_name          text                  DEFAULT NULL,
+     file_folder        text                  DEFAULT NULL,
+     file_extension     text                  DEFAULT NULL,
+     chunk_size         int(10) unsigned NOT NULL,
+     chunks_received    longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]',
+     created            timestamp    NOT NULL DEFAULT current_timestamp(),
+     updated            timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
   } catch (ex) {
@@ -73,11 +75,10 @@ class Data extends DataGeneric {
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
   return await this.db.query(
    `
-    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_name, file_mime_type, file_size, file_path, chunk_size,
-                              temp_file_path, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
-   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.filePath, fileUploadRecord.chunkSize, fileUploadRecord.tempFilePath, fileUploadRecord.status]
+   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status]
   );
  }
 
@@ -101,6 +102,8 @@ class Data extends DataGeneric {
  }
 
  async createAttachment(attachmentRecord: AttachmentRecord) {
+  console.log('!!! attachmentRecord', attachmentRecord);
+  console.log('!!! attachmentRecord 2', [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]);
   return await this.db.query(
    `
    INSERT INTO attachments (id, user_id, file_transfer_id, file_path)

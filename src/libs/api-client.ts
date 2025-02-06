@@ -4,6 +4,7 @@ import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './
 import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
 import { UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND } from './FileTransfer/constants.ts';
+import { FILE_TRANSFER_SETTINGS } from './FileTransfer/settings.ts';
 
 let Log = newLogger('api-client');
 
@@ -153,20 +154,18 @@ export class ApiClient extends ModuleApiBase {
   if (!records) return { error: 1, message: 'Records are missing' };
   if (!recipients) return { error: 2, message: 'Recipients are missing' };
 
-  const allowedRecords = [];
-  const disallowedRecords = [];
+  const allowedRecords: any[] = [];
+  const disallowedRecords: any[] = [];
   for (let record of records) {
-   const { id, fileName, fileMimeType, fileSize, type, chunkSize, fromUserUid } = record;
-   console.log('AAAAAAA', c);
+   const { id, fileOriginalName, fileMimeType, fileSize, type, chunkSize, fromUserUid } = record;
    const updatedRecord = await this.app.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
     fromUserUid,
     type,
-    fileName,
+    fileOriginalName,
     fileMimeType,
     fileSize,
-    filePath: 'uploads/message-attachments',
     chunkSize
    });
    await this.app.data.createFileUpload(updatedRecord);
@@ -176,7 +175,8 @@ export class ApiClient extends ModuleApiBase {
     makeAttachmentRecord({
      userId: c.userID,
      fileTransferId: updatedRecord.id,
-     filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+     // todo: when encrypted, this should be separate file path???
+     filePath: updatedRecord.type === FileUploadRecordType.P2P ? null : FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.USER_FILE_NAME_STRATEGY(updatedRecord)
     })
    );
 
@@ -203,7 +203,7 @@ export class ApiClient extends ModuleApiBase {
      makeAttachmentRecord({
       userId: userToID,
       fileTransferId: updatedRecord.id,
-      filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+      filePath: updatedRecord.type === FileUploadRecordType.P2P ? null : FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.USER_FILE_NAME_STRATEGY(updatedRecord)
      })
     );
    }
