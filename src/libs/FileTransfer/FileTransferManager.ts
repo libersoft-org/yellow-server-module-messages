@@ -1,10 +1,10 @@
-import { makeServerFileUploadRecord, makeP2PFileUploadRecord, makeTempFilePath, makeFilePath } from './utils.ts';
-import { FileUploadBeginData, type FileUploadChunk, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
+import { makeFilePath, makeP2PFileUploadRecord, makeServerFileUploadRecord, makeTempFilePath } from './utils.ts';
+import { FileUploadBeginData, type FileUploadChunk, FileUploadErrorType, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
 import fs from 'node:fs/promises';
-import * as fsSync from 'fs';
 import { EventEmitter } from 'node:events';
 import { newLogger } from 'yellow-server-common';
 import { DownloadChunkP2PNotFoundError } from './errors.ts';
+import { FILE_TRANSFER_SETTINGS } from './settings.ts';
 
 let Log = newLogger('FileTransferManager');
 
@@ -110,8 +110,6 @@ class FileTransferManager extends EventEmitter {
    return record;
   }
 
-  //console.log('id', id);
-
   // proceed to find record in database
   const foundRecord = await this.findRecord(id);
 
@@ -152,6 +150,30 @@ class FileTransferManager extends EventEmitter {
   }
 
   return { chunk };
+ }
+
+ async checkAndValidateFileUploads(records: FileUploadRecord[], updatedRecordCallback: (record: FileUploadRecord) => Promise<void>) {
+  for (const record of records) {
+   if ([FileUploadRecordStatus.FINISHED, FileUploadRecordStatus.CANCELED, FileUploadRecordStatus.ERROR].includes(record.status)) {
+    continue;
+   }
+
+   if ([FileUploadRecordStatus.BEGUN, FileUploadRecordStatus.UPLOADING, FileUploadRecordStatus.PAUSED].includes(record.status)) {
+    // check record.upload time for timeout
+    const now = Date.now();
+    const diff = now - record.updated.getTime();
+    if ((record.type === FileUploadRecordType.SERVER && diff > FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.TIMEOUT_ERROR_MS) || (record.type === FileUploadRecordType.P2P && diff > FILE_TRANSFER_SETTINGS.P2P_TRANSFER.TIMEOUT_ERROR_MS)) {
+     record.status = FileUploadRecordStatus.ERROR;
+     record.errorType = FileUploadErrorType.TIMEOUT_BY_SERVER;
+     try {
+      await updatedRecordCallback(record);
+     } catch (error) {
+      Log.error('Error updating record', error);
+     }
+    }
+   }
+  }
+  return records;
  }
 }
 

@@ -1,6 +1,6 @@
 import { newLogger, DataGeneric } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import { AttachmentRecord, FileUploadRecord } from './FileTransfer/types.ts';
+import { AttachmentRecord, FileUploadRecord, FileUploadRecordStatus } from './FileTransfer/types.ts';
 import * as changeKeys from 'change-case/keys';
 
 let Log = newLogger('data');
@@ -36,17 +36,19 @@ class Data extends DataGeneric {
   try {
    await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, format VARCHAR(16) NOT NULL DEFAULT "plaintext", seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
    await this.db.query(`
-    DROP TABLE IF EXISTS attachments;
-    CREATE TABLE attachments (
-      id varchar(36) NOT NULL,
-      file_transfer_id varchar(36) NOT NULL,
-      user_id int(11) unsigned NOT NULL,
-      file_path text NOT NULL,
-      created timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE IF EXISTS attachments;
+    CREATE TABLE attachments
+    (
+     id               varchar(36) NOT NULL,
+     file_transfer_id varchar(36) NOT NULL,
+     user_id          int(11) unsigned NOT NULL,
+     file_path        text                 DEFAULT NULL,
+     created          timestamp   NOT NULL DEFAULT current_timestamp(),
+     updated          timestamp   NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
    await this.db.query(`
-    DROP TABLE IF EXISTS file_uploads;
+    CREATE TABLE IF EXISTS file_uploads;
     CREATE TABLE file_uploads
     (
      id                 varchar(36)  NOT NULL,
@@ -54,6 +56,7 @@ class Data extends DataGeneric {
      from_user_uid      varchar(255) NOT NULL,
      type               varchar(255) NOT NULL,
      status             varchar(255) NOT NULL,
+     error_type         varchar(255)          DEFAULT NULL,
      file_original_name text         NOT NULL,
      file_mime_type     text         NOT NULL,
      file_size          bigint(20) unsigned NOT NULL,
@@ -75,10 +78,10 @@ class Data extends DataGeneric {
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
   return await this.db.query(
    `
-    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status)
+    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status, created)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
-   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status]
+   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status, fileUploadRecord.created]
   );
  }
 
@@ -92,6 +95,17 @@ class Data extends DataGeneric {
   }
 
   return record;
+ }
+
+ async getFileUploadsForCheck() {
+  const data = await this.db.query('SELECT * FROM file_uploads WHERE status = ? OR status = ? OR status = ? ORDER BY created DESC', [FileUploadRecordStatus.BEGUN, FileUploadRecordStatus.UPLOADING, FileUploadRecordStatus.PAUSED]);
+
+  // transform to camelCase
+  return data.map((record: any) => {
+   record = changeKeys.camelCase(record) as FileUploadRecord;
+   record.chunksReceived = record.chunksReceived ? JSON.parse(record.chunksReceived) : [];
+   return record;
+  });
  }
 
  async updateFileUpload(id: string, data: Partial<FileUploadRecord>) {

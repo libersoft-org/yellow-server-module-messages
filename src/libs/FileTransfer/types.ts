@@ -6,9 +6,9 @@ export enum FileUploadRecordType {
 export enum FileUploadRecordStatus {
  BEGUN = 'BEGUN',
  UPLOADING = 'UPLOADING',
+ PAUSED = 'PAUSED',
  FINISHED = 'FINISHED',
  CANCELED = 'CANCELED',
- PAUSED = 'PAUSED',
  ERROR = 'ERROR'
 }
 
@@ -34,6 +34,9 @@ export interface BaseFileUploadRecord {
 
  chunkSize: number;
  chunksReceived: number[];
+
+ created: Date;
+ updated: Date;
 }
 
 export interface P2PFileUploadRecord extends BaseFileUploadRecord {

@@ -16,7 +16,9 @@ export function makeServerFileUploadRecord(data: MakeServerFileUploadRecordData)
   status: FileUploadRecordStatus.BEGUN,
   type: FileUploadRecordType.SERVER,
   errorType: null,
-  chunksReceived: []
+  chunksReceived: [],
+  created: Date.now(),
+  updated: Date.now()
  };
  const record = Object.assign(defaults, data) as ServerFileUploadRecord;
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);
@@ -35,7 +37,9 @@ export function makeP2PFileUploadRecord(data: MakeP2PFileUploadRecordData): P2PF
   fileFolder: null,
   fileExtension: null,
   errorType: null,
-  chunksReceived: []
+  chunksReceived: [],
+  created: Date.now(),
+  updated: Date.now()
  };
  const record = Object.assign(defaults, data) as P2PFileUploadRecord;
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);

@@ -1,6 +1,6 @@
 import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
+import { FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
 import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
 import { UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND } from './FileTransfer/constants.ts';
@@ -38,6 +38,38 @@ export class ApiClient extends ModuleApiBase {
    upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
   };
   this.message_seen_mutex = new Mutex();
+  this.runFileUploadsCleanup();
+ }
+
+ async runFileUploadsCleanup() {
+  while (true) {
+   // wait for next iteration
+   await new Promise(resolve => setTimeout(resolve, FILE_TRANSFER_SETTINGS.CLEANUP_INTERVAL_MS));
+   Log.info('Running file uploads cleanup');
+
+   // first get appropriate records from db
+   const dbRecords = await this.app.data.getFileUploadsForCheck();
+   // now combine it with in-memory records from fileTransferManager
+   const inMemoryRecords = Array.from(this.app.fileTransferManager.records.values());
+   // combine both where memory records have priority
+   const records = [...inMemoryRecords, ...dbRecords].reduce((acc, record) => {
+    if (!acc.some(r => r.id === record.id)) {
+     acc.push(record);
+    }
+    return acc;
+   }, []);
+
+   Log.info('Checking and validating file uploads', records.length);
+
+   await this.app.fileTransferManager.checkAndValidateFileUploads(records, async (updatedRecord: FileUploadRecord) => {
+    Log.info('Updating file upload record', updatedRecord.id, updatedRecord.status, updatedRecord.errorType);
+    await this.app.data.updateFileUpload(updatedRecord.id, {
+     status: updatedRecord.status,
+     error_type: updatedRecord.errorType
+    });
+    await this.send_upload_update_notification(updatedRecord);
+   });
+  }
  }
 
  async download_chunk(c) {
