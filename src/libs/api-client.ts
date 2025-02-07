@@ -109,6 +109,17 @@ export class ApiClient extends ModuleApiBase {
      }
     }
 
+    // non-blocking p2p memory chunks clear
+    setTimeout(() => {
+     const forgetTolerance = 10;
+     // set null to chunks that are not needed anymore (based on prev chunk.chunkId and forgetTolerance)
+     if (chunksLength && chunk.chunkId > forgetTolerance) {
+      for (let i = 0; i < chunk.chunkId - forgetTolerance; i++) {
+       existingP2PChunks[i] = null;
+      }
+     }
+    });
+
     return {
      error: 0,
      chunk
@@ -136,11 +147,13 @@ export class ApiClient extends ModuleApiBase {
   const { record } = process;
 
   await this.app.data.updateFileUpload(record.id, {
-   chunks_received: JSON.stringify(record.chunksReceived),
-   status: FileUploadRecordStatus.UPLOADING
+   chunks_received: JSON.stringify(record.chunksReceived)
   });
 
   if (record.status === FileUploadRecordStatus.BEGUN) {
+   await this.app.data.updateFileUpload(record.id, {
+    status: FileUploadRecordStatus.UPLOADING
+   });
    record.status = FileUploadRecordStatus.UPLOADING;
    this.send_upload_update_notification(record);
   }
@@ -159,25 +172,28 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_get(c) {
   const { id } = c.params;
-  const record = await this.app.fileTransferManager.getRecord(id);
-  //const record = await this.app.fileTransferManager.getRecord(id)
+  try {
+   const record = await this.app.fileTransferManager.getRecord(id);
 
-  // check file access permission
-  const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
-  if (!owners.some(owner => owner.userId === c.userID)) {
-   return { error: 1, message: 'You are not allowed to access this record' };
-  }
-
-  if (!record) return { error: 1, message: 'Record not found' };
-  return {
-   error: 0,
-   data: {
-    record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
-    uploadData: {
-     role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
-    }
+   // check file access permission
+   const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
+   if (!owners.some(owner => owner.userId === c.userID)) {
+    return { error: 2, message: 'You are not allowed to access this record' };
    }
-  };
+
+   return {
+    error: 0,
+    data: {
+     record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
+     uploadData: {
+      role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
+     }
+    }
+   };
+  } catch (err) {
+   Log.error('Upload record not found', err);
+   return { error: 1, message: 'Record not found' };
+  }
  }
 
  async upload_begin(c) {

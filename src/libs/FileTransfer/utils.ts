@@ -17,14 +17,14 @@ export function makeServerFileUploadRecord(data: MakeServerFileUploadRecordData)
   type: FileUploadRecordType.SERVER,
   errorType: null,
   chunksReceived: [],
-  created: Date.now(),
-  updated: Date.now()
+  created: new Date(),
+  updated: new Date()
  };
  const record = Object.assign(defaults, data) as ServerFileUploadRecord;
+ record.fileExtension = path.extname(record.fileOriginalName);
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);
  record.fileName = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.FILE_NAME_STRATEGY(record as any) as string;
  record.fileFolder = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.FILE_FOLDER_PATH_STRATEGY(record as any);
- record.fileExtension = path.extname(record.fileOriginalName);
  return record;
 }
 
@@ -38,8 +38,8 @@ export function makeP2PFileUploadRecord(data: MakeP2PFileUploadRecordData): P2PF
   fileExtension: null,
   errorType: null,
   chunksReceived: [],
-  created: Date.now(),
-  updated: Date.now()
+  created: new Date(),
+  updated: new Date()
  };
  const record = Object.assign(defaults, data) as P2PFileUploadRecord;
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);

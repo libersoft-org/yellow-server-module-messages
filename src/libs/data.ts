@@ -79,7 +79,7 @@ class Data extends DataGeneric {
   return await this.db.query(
    `
     INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status, created)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
    [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status, fileUploadRecord.created]
   );

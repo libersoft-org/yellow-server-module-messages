@@ -67,11 +67,17 @@ class FileTransferManager extends EventEmitter {
    const buffer = Buffer.from(chunk.data, 'base64');
    await fs.appendFile(makeTempFilePath(record), buffer);
    record.chunksReceived.push(chunk.chunkId);
-   // this.emit(FileTransferManagerEvents.AFTER_PROCESS_CHUNK, {record, chunk})
 
    // check if finished
    if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) {
-    await this.finalizeUpload(record);
+    // todo: checksum
+    record.status = FileUploadRecordStatus.FINISHED;
+    record.chunksReceived = [];
+    this.records.set(record.id, record);
+    // move temp file to final location
+    let dst = makeFilePath(record);
+    await fs.rename(makeTempFilePath(record), dst);
+    return { record };
    }
 
    return { record, chunk };
@@ -92,15 +98,6 @@ class FileTransferManager extends EventEmitter {
   }
 
   return { record, chunk };
- }
-
- async finalizeUpload(record: FileUploadRecord) {
-  // todo: checksum
-  record.status = FileUploadRecordStatus.FINISHED;
-  // move temp file to final location
-  let dst = makeFilePath(record);
-  await fs.rename(makeTempFilePath(record), dst);
-  return { record };
  }
 
  async getRecord(id: string) {
