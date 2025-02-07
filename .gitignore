@@ -1,6 +1,6 @@
 src/node_modules/
 src/settings.json
-src/*.log
+**/*.log
 src/bun.lock
 src/bun.lockb
 src/bun.lockb.txt
