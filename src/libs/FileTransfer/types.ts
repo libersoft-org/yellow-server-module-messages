@@ -12,7 +12,7 @@ export enum FileUploadRecordStatus {
  ERROR = 'ERROR'
 }
 
-export enum FileUploadErrorType {
+export enum FileUploadRecordErrorType {
  TIMEOUT_BY_SERVER = 'TIMEOUT_BY_SERVER'
 }
 
@@ -22,7 +22,7 @@ export interface BaseFileUploadRecord {
  fromUserUid: string;
  type: FileUploadRecordType;
  status: FileUploadRecordStatus;
- errorType: FileUploadErrorType | null;
+ errorType: FileUploadRecordErrorType | null;
 
  fileOriginalName: string;
  fileMimeType: string;

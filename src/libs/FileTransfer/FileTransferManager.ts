@@ -1,5 +1,5 @@
 import { makeFilePath, makeP2PFileUploadRecord, makeServerFileUploadRecord, makeTempFilePath } from './utils.ts';
-import { FileUploadBeginData, type FileUploadChunk, FileUploadErrorType, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
+import { FileUploadBeginData, type FileUploadChunk, FileUploadRecordErrorType, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
 import fs from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { newLogger } from 'yellow-server-common';
@@ -152,6 +152,8 @@ class FileTransferManager extends EventEmitter {
  async checkAndValidateFileUploads(records: FileUploadRecord[], updatedRecordCallback: (record: FileUploadRecord) => Promise<void>) {
   for (const record of records) {
    if ([FileUploadRecordStatus.FINISHED, FileUploadRecordStatus.CANCELED, FileUploadRecordStatus.ERROR].includes(record.status)) {
+    // clear from server memory
+    this.records.delete(record.id);
     continue;
    }
 
@@ -159,9 +161,24 @@ class FileTransferManager extends EventEmitter {
     // check record.upload time for timeout
     const now = Date.now();
     const diff = now - record.updated.getTime();
-    if ((record.type === FileUploadRecordType.SERVER && diff > FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.TIMEOUT_ERROR_MS) || (record.type === FileUploadRecordType.P2P && diff > FILE_TRANSFER_SETTINGS.P2P_TRANSFER.TIMEOUT_ERROR_MS)) {
+    let timeout = null
+    if (record.type === FileUploadRecordType.SERVER) {
+     if (record.status === FileUploadRecordStatus.PAUSED) {
+      timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
+     } else {
+      timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
+     }
+    }
+    if (record.type === FileUploadRecordType.P2P) {
+     if (record.status === FileUploadRecordStatus.PAUSED) {
+      timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
+     } else {
+      timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
+     }
+    }
+    if (timeout && diff > timeout) {
      record.status = FileUploadRecordStatus.ERROR;
-     record.errorType = FileUploadErrorType.TIMEOUT_BY_SERVER;
+     record.errorType = FileUploadRecordErrorType.TIMEOUT_BY_SERVER;
      try {
       await updatedRecordCallback(record);
      } catch (error) {
