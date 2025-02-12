@@ -2,6 +2,7 @@ import { newLogger, DataGeneric } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
 import { AttachmentRecord, FileUploadRecord, FileUploadRecordStatus } from './FileTransfer/types.ts';
 import * as changeKeys from 'change-case/keys';
+import _cloneDeep from 'lodash/cloneDeep';
 
 let Log = newLogger('data');
 
@@ -76,10 +77,10 @@ class Data extends DataGeneric {
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
   return await this.db.query(
    `
-    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status, created)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
-   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status, fileUploadRecord.created]
+   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status]
   );
  }
 
@@ -106,7 +107,13 @@ class Data extends DataGeneric {
   });
  }
 
- async updateFileUpload(id: string, data: Partial<FileUploadRecord>) {
+ async patchFileUpload(id: string, _data: Partial<FileUploadRecord>) {
+  let data = _cloneDeep(_data);
+  // make data transformations
+  if (data.chunksReceived && typeof data.chunksReceived !== 'string') {
+   data.chunksReceived = JSON.stringify(data.chunksReceived) as any;
+  }
+  data = changeKeys.snakeCase(data) as any;
   const keys = Object.keys(data);
   const values = Object.values(data);
   const set = keys.map((key, i) => `${key} = ?`).join(', ');
@@ -114,8 +121,8 @@ class Data extends DataGeneric {
  }
 
  async createAttachment(attachmentRecord: AttachmentRecord) {
-  console.log('!!! attachmentRecord', attachmentRecord);
-  console.log('!!! attachmentRecord 2', [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]);
+  Log.debug('!!! attachmentRecord', attachmentRecord);
+  Log.debug('!!! attachmentRecord 2', [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]);
   return await this.db.query(
    `
    INSERT INTO attachments (id, user_id, file_transfer_id, file_path)

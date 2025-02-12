@@ -102,8 +102,9 @@ class App extends ModuleAppBase {
  async init() {
   this.data = new Data(this.info.settings.database);
   this.fileTransferManager = new FileTransferManager({
-   findRecord: this.data.getFileUpload.bind(this.data)
-   //getUserAddressByID: app.core.api.getUserAddressByID,
+   createRecordOnServer: this.data.createFileUpload.bind(this.data),
+   findRecordOnServer: this.data.getFileUpload.bind(this.data),
+   patchRecordOnServer: this.data.patchFileUpload.bind(this.data)
   });
  }
 }

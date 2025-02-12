@@ -5,17 +5,28 @@ import { EventEmitter } from 'node:events';
 import { newLogger } from 'yellow-server-common';
 import { DownloadChunkP2PNotFoundError } from './errors.ts';
 import { FILE_TRANSFER_SETTINGS } from './settings.ts';
+import _cloneDeep from 'lodash/cloneDeep';
 
 let Log = newLogger('FileTransferManager');
 
+interface FileTransferManagerSettings {
+ createRecordOnServer: FileTransferManager['_createRecordOnServer'];
+ findRecordOnServer: FileTransferManager['_findRecordOnServer'];
+ patchRecordOnServer: FileTransferManager['_patchRecordOnServer'];
+}
+
 class FileTransferManager extends EventEmitter {
  records: Map<string, FileUploadRecord> = new Map();
- findRecord: (id: string) => Promise<FileUploadRecord>;
  p2pTempChunks: Map<string, FileUploadChunk[]> = new Map();
+ private readonly _createRecordOnServer?: (record: FileUploadRecord) => Promise<unknown>; // todo return type
+ private readonly _findRecordOnServer?: (id: string) => Promise<FileUploadRecord>;
+ private readonly _patchRecordOnServer?: (id: string, record: Partial<FileUploadRecord>) => Promise<unknown>; // todo return type
 
- constructor(settings: { findRecord: (id: string) => Promise<FileUploadRecord> }) {
+ constructor(settings: FileTransferManagerSettings) {
   super();
-  this.findRecord = settings.findRecord;
+  this._createRecordOnServer = settings.createRecordOnServer;
+  this._findRecordOnServer = settings.findRecordOnServer;
+  this._patchRecordOnServer = settings.patchRecordOnServer;
  }
 
  async uploadBegin(data: FileUploadBeginData) {
@@ -46,7 +57,7 @@ class FileTransferManager extends EventEmitter {
    throw new Error('Invalid file transfer record type');
   }
 
-  this.records.set(record.id, record);
+  await this.createRecord(record);
 
   return record;
  }
@@ -73,12 +84,12 @@ class FileTransferManager extends EventEmitter {
     // todo: checksum
     record.status = FileUploadRecordStatus.FINISHED;
     record.chunksReceived = [];
-    this.records.set(record.id, record);
     // move temp file to final location
     let dst = makeFilePath(record);
     await fs.rename(makeTempFilePath(record), dst);
-    return { record };
    }
+
+   await this.patchRecord(record.id, record);
 
    return { record, chunk };
   } catch (error) {
@@ -97,6 +108,8 @@ class FileTransferManager extends EventEmitter {
    record.status = FileUploadRecordStatus.FINISHED;
   }
 
+  await this.patchRecord(record.id, record);
+
   return { record, chunk };
  }
 
@@ -107,15 +120,71 @@ class FileTransferManager extends EventEmitter {
    return record;
   }
 
+  // handle not found in memory
+  if (!FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
+   throw new Error('Record not found');
+  }
+  if (typeof this._findRecordOnServer !== 'function') {
+   throw new Error('findRecordOnServer not set');
+  }
+
   // proceed to find record in database
-  const foundRecord = await this.findRecord(id);
+  const foundRecord = await this._findRecordOnServer(id);
 
   if (!foundRecord) {
-   throw new Error('Record not found');
+   throw new Error('Record not found on server');
   }
 
   this.records.set(foundRecord.id, foundRecord);
   return foundRecord;
+ }
+
+ async patchRecord(id: string, _data: Partial<FileUploadRecord>) {
+  const data = _cloneDeep(_data);
+
+  // rm data that we should not update
+  delete data.id;
+  delete data.updated;
+
+  // handle persistence
+  if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
+   if (typeof this._patchRecordOnServer !== 'function') {
+    throw new Error('updateRecordOnServer not set');
+   }
+
+   await this._patchRecordOnServer(id, data);
+  }
+
+  // assemble updated record in case of db defaults/updates
+  const currentRecord = await this.getRecord(id);
+  const updatedRecord = { ...currentRecord, ...data, id } as FileUploadRecord;
+
+  // update memory if set
+  if (this.records.has(id)) {
+   this.records.set(id, updatedRecord);
+  }
+
+  return updatedRecord;
+ }
+
+ async createRecord(data: FileUploadRecord) {
+  if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
+   if (typeof this._createRecordOnServer !== 'function') {
+    throw new Error('createRecordOnServer not set');
+   }
+
+   await this._createRecordOnServer(data);
+  }
+
+  let record = { ...data } as FileUploadRecord;
+  if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE && this._findRecordOnServer) {
+   // get updated data from server (in case of db defaults)
+   const dbRecord = await this._findRecordOnServer(data.id);
+   record = { ...record, ...dbRecord };
+  }
+
+  this.records.set(data.id, record);
+  return data;
  }
 
  async getFileChunk(uploadId: string, offsetBytes: number, chunkSize: number) {
@@ -138,7 +207,6 @@ class FileTransferManager extends EventEmitter {
  }
 
  async getFileChunkP2P(uploadId: string, chunkId: number) {
-  const record = await this.getRecord(uploadId);
   const tempChunks = this.p2pTempChunks.get(uploadId) || [];
   const chunk = tempChunks[chunkId];
 
@@ -150,7 +218,7 @@ class FileTransferManager extends EventEmitter {
  }
 
  async checkAndValidateFileUploads(records: FileUploadRecord[], updatedRecordCallback: (record: FileUploadRecord) => Promise<void>) {
-  for (const record of records) {
+  for (let record of records) {
    if ([FileUploadRecordStatus.FINISHED, FileUploadRecordStatus.CANCELED, FileUploadRecordStatus.ERROR].includes(record.status)) {
     // clear from server memory
     this.records.delete(record.id);
@@ -161,7 +229,7 @@ class FileTransferManager extends EventEmitter {
     // check record.upload time for timeout
     const now = Date.now();
     const diff = now - record.updated.getTime();
-    let timeout = null
+    let timeout = null;
     if (record.type === FileUploadRecordType.SERVER) {
      if (record.status === FileUploadRecordStatus.PAUSED) {
       timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
@@ -176,10 +244,14 @@ class FileTransferManager extends EventEmitter {
       timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
      }
     }
+    Log.debug('Checking record', record.id, 'for diff', diff, 'timeout', timeout);
     if (timeout && diff > timeout) {
-     record.status = FileUploadRecordStatus.ERROR;
-     record.errorType = FileUploadRecordErrorType.TIMEOUT_BY_SERVER;
      try {
+      Log.info('Updating file upload record', record.id, record.status, record.errorType);
+      record = await this.patchRecord(record.id, {
+       status: FileUploadRecordStatus.ERROR,
+       errorType: FileUploadRecordErrorType.TIMEOUT_BY_SERVER
+      });
       await updatedRecordCallback(record);
      } catch (error) {
       Log.error('Error updating record', error);
