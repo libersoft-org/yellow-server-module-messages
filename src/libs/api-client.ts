@@ -59,15 +59,10 @@ export class ApiClient extends ModuleApiBase {
     return acc;
    }, []);
 
-   Log.info('Checking and validating file uploads', records.length);
+   Log.info('Checking and validating file uploads', dbRecords.length);
 
-   await this.app.fileTransferManager.checkAndValidateFileUploads(records, async (updatedRecord: FileUploadRecord) => {
-    Log.info('Updating file upload record', updatedRecord.id, updatedRecord.status, updatedRecord.errorType);
-    await this.app.data.updateFileUpload(updatedRecord.id, {
-     status: updatedRecord.status,
-     error_type: updatedRecord.errorType
-    });
-    await this.send_upload_update_notification(updatedRecord);
+   await this.app.fileTransferManager.checkAndValidateFileUploads(dbRecords, async (updatedRecord: FileUploadRecord) => {
+    await this.send_upload_update_notification({ record: updatedRecord });
    });
   }
  }
@@ -144,27 +139,28 @@ export class ApiClient extends ModuleApiBase {
  async upload_chunk(c) {
   const { chunk } = c.params;
   const process = await this.app.fileTransferManager.processChunk(chunk);
-  const { record } = process;
-
-  await this.app.data.updateFileUpload(record.id, {
-   chunks_received: JSON.stringify(record.chunksReceived)
-  });
+  let record = process.record;
 
   if (record.status === FileUploadRecordStatus.BEGUN) {
-   await this.app.data.updateFileUpload(record.id, {
-    status: FileUploadRecordStatus.UPLOADING
+   record = await this.app.fileTransferManager.patchRecord(record.id, { status: FileUploadRecordStatus.UPLOADING });
+   // with first chunk received, update status to UPLOADING
+   await this.send_upload_update_notification({ record });
+  }
+
+  if (record.type === FileUploadRecordType.SERVER) {
+   // update progress
+   this.send_upload_update_notification({
+    record,
+    uploadData: {
+     uploadedBytes: record.chunksReceived.length * record.chunkSize
+    }
    });
-   record.status = FileUploadRecordStatus.UPLOADING;
-   this.send_upload_update_notification(record);
   }
 
   // check if finished
   // todo: check if its ok for p2p
   if (record.status === FileUploadRecordStatus.FINISHED) {
-   await this.app.data.updateFileUpload(record.id, {
-    status: FileUploadRecordStatus.FINISHED
-   });
-   this.send_upload_update_notification(record);
+   this.send_upload_update_notification({ record });
   }
 
   return { error: 0, message: 'Chunk accepted' };
@@ -186,6 +182,7 @@ export class ApiClient extends ModuleApiBase {
     data: {
      record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
      uploadData: {
+      uploadedBytes: record.chunksReceived.length * record.chunkSize,
       role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
      }
     }
@@ -216,7 +213,6 @@ export class ApiClient extends ModuleApiBase {
     fileSize,
     chunkSize
    });
-   await this.app.data.createFileUpload(updatedRecord);
 
    // create attachment for sender
    await this.app.data.createAttachment(
@@ -264,27 +260,25 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_cancel(c) {
   const { uploadId } = c.params;
-  const record = await this.app.fileTransferManager.getRecord(uploadId);
+  let record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
-  record.status = FileUploadRecordStatus.CANCELED;
-  await this.app.data.updateFileUpload(record.id, {
+
+  record = await this.app.fileTransferManager.patchRecord(record.id, {
    status: FileUploadRecordStatus.CANCELED
   });
-  await this.send_upload_update_notification(record, [c.userID]);
+
+  await this.send_upload_update_notification({ record });
   return { error: 0, message: 'Upload canceled' };
  }
 
  async upload_update_status(c) {
   const { uploadId, status: newStatus } = c.params;
-  const record = await this.app.fileTransferManager.getRecord(uploadId);
+  let record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
 
-  const updateStatusAndSendNotification = async status => {
-   await this.app.data.updateFileUpload(record.id, {
-    status
-   });
-   record.status = status;
-   await this.send_upload_update_notification(record);
+  const updateStatusAndSendNotification = async (status: FileUploadRecordStatus) => {
+   record = await this.app.fileTransferManager.patchRecord(record.id, { status });
+   await this.send_upload_update_notification({ record });
   };
 
   if (newStatus === FileUploadRecordStatus.CANCELED) {
@@ -311,14 +305,15 @@ export class ApiClient extends ModuleApiBase {
   return { error: 0, message: 'Upload updated' };
  }
 
- async send_upload_update_notification(record, ignoreUserIds = []) {
-  this.app.data.getAttachmentsByFileTransferId(record.id).then(attachments => {
+ async send_upload_update_notification({ record, uploadData }: { record: FileUploadRecord; uploadData?: any }, ignoreUserIds = []) {
+  return await this.app.data.getAttachmentsByFileTransferId(record.id).then(attachments => {
    for (let attachment of attachments) {
     if (ignoreUserIds.includes(attachment.userId)) {
      continue;
     }
     this.signals.notifyUser(attachment.userId, 'upload_update', {
-     record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND)
+     record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
+     uploadData
     });
    }
   });
