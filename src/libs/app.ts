@@ -2,6 +2,11 @@ import Data from './data';
 import { ApiClient } from './api-client';
 import { ModuleAppBase } from 'yellow-server-common';
 import path from 'path';
+import FileTransferManager from './FileTransfer/FileTransferManager.ts';
+
+interface LogTopicFilter {
+ [key: string]: string;
+}
 
 interface Settings {
  web: {
@@ -15,9 +20,29 @@ interface Settings {
   password: string;
   name: string;
  };
- other: {
-  log_file: string;
-  log_to_file: boolean;
+ log: {
+  level: string;
+  stdout: {
+   enabled: boolean;
+   levels: LogTopicFilter[];
+  };
+  file: {
+   enabled: boolean;
+   name: string;
+   levels: LogTopicFilter[];
+  };
+  database: {
+   enabled: boolean;
+   level: string;
+  };
+  json: {
+   enabled: boolean;
+   name: string;
+   level: string;
+  };
+  elasticsearch: {
+   enabled: boolean;
+  };
  };
 }
 
@@ -25,6 +50,7 @@ class App extends ModuleAppBase {
  defaultSettings: Settings;
  api: ApiClient;
  data: Data;
+ public fileTransferManager: FileTransferManager;
 
  constructor() {
   const info = {
@@ -45,9 +71,29 @@ class App extends ModuleAppBase {
     password: 'password',
     name: 'yellow_module_org_libersoft_messages'
    },
-   other: {
-    log_file: 'module-messages.log',
-    log_to_file: true
+   log: {
+    level: 'info',
+    stdout: {
+     enabled: true,
+     levels: [{ '*': 'info' }]
+    },
+    file: {
+     enabled: true,
+     name: 'server.log',
+     levels: [{ '*': 'info' }]
+    },
+    database: {
+     enabled: true,
+     level: 'debug'
+    },
+    json: {
+     enabled: false,
+     name: 'json.log',
+     level: 'debug'
+    },
+    elasticsearch: {
+     enabled: false
+    }
    }
   };
   this.api = new ApiClient(this);
@@ -55,6 +101,10 @@ class App extends ModuleAppBase {
 
  async init() {
   this.data = new Data(this.info.settings.database);
+  this.fileTransferManager = new FileTransferManager({
+   findRecord: this.data.getFileUpload.bind(this.data)
+   //getUserAddressByID: app.core.api.getUserAddressByID,
+  });
  }
 }
 

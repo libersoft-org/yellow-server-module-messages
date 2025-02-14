@@ -1,10 +1,10 @@
-import { makeFileUploadRecord } from './utils.ts';
-import { type FileUploadChunk, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
+import { makeFilePath, makeP2PFileUploadRecord, makeServerFileUploadRecord, makeTempFilePath } from './utils.ts';
+import { FileUploadBeginData, type FileUploadChunk, FileUploadErrorType, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
 import fs from 'node:fs/promises';
-import * as fsSync from 'fs';
 import { EventEmitter } from 'node:events';
 import { newLogger } from 'yellow-server-common';
 import { DownloadChunkP2PNotFoundError } from './errors.ts';
+import { FILE_TRANSFER_SETTINGS } from './settings.ts';
 
 let Log = newLogger('FileTransferManager');
 
@@ -18,19 +18,33 @@ class FileTransferManager extends EventEmitter {
   this.findRecord = settings.findRecord;
  }
 
- async uploadBegin(data: Pick<FileUploadRecord, 'id' | 'fromUserId' | 'type' | 'fileName' | 'fileMimeType' | 'fileSize' | 'filePath'>) {
-  const record = makeFileUploadRecord({
-   id: data.id,
-   fromUserId: data.fromUserId,
-   type: data.type,
-   fileName: data.fileName,
-   fileMimeType: data.fileMimeType,
-   fileSize: data.fileSize,
-   filePath: data.filePath,
-   chunkSize: 1024 * 64,
-   tempFilePath: 'uploads/' + data.id + '-' + data.fileName //+ '.tmp'
-   // tempFilePath: data.filePath + '/' + data.fileName //+ '.tmp'
-  });
+ async uploadBegin(data: FileUploadBeginData) {
+  let record: FileUploadRecord;
+  if (data.type === FileUploadRecordType.SERVER) {
+   record = makeServerFileUploadRecord({
+    id: data.id,
+    fromUserId: data.fromUserId,
+    fromUserUid: data.fromUserUid,
+    type: data.type,
+    fileOriginalName: data.fileOriginalName,
+    fileMimeType: data.fileMimeType,
+    fileSize: data.fileSize,
+    chunkSize: data.chunkSize
+   });
+  } else if (data.type === FileUploadRecordType.P2P) {
+   record = makeP2PFileUploadRecord({
+    id: data.id,
+    fromUserId: data.fromUserId,
+    fromUserUid: data.fromUserUid,
+    type: data.type,
+    fileOriginalName: data.fileOriginalName,
+    fileSize: data.fileSize,
+    fileMimeType: data.fileMimeType,
+    chunkSize: data.chunkSize
+   });
+  } else {
+   throw new Error('Invalid file transfer record type');
+  }
 
   this.records.set(record.id, record);
 
@@ -51,14 +65,19 @@ class FileTransferManager extends EventEmitter {
  async processChunkServer(chunk: FileUploadChunk, record: FileUploadRecord) {
   try {
    const buffer = Buffer.from(chunk.data, 'base64');
-   //console.log('appendFile(record.tempFilePath, buffer)', record.tempFilePath, buffer.length);
-   await fs.appendFile(record.tempFilePath, buffer);
+   await fs.appendFile(makeTempFilePath(record), buffer);
    record.chunksReceived.push(chunk.chunkId);
-   // this.emit(FileTransferManagerEvents.AFTER_PROCESS_CHUNK, {record, chunk})
 
    // check if finished
    if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) {
-    await this.finalizeUpload(record);
+    // todo: checksum
+    record.status = FileUploadRecordStatus.FINISHED;
+    record.chunksReceived = [];
+    this.records.set(record.id, record);
+    // move temp file to final location
+    let dst = makeFilePath(record);
+    await fs.rename(makeTempFilePath(record), dst);
+    return { record };
    }
 
    return { record, chunk };
@@ -81,25 +100,12 @@ class FileTransferManager extends EventEmitter {
   return { record, chunk };
  }
 
- async finalizeUpload(record: FileUploadRecord) {
-  // todo: checksum
-  record.status = FileUploadRecordStatus.FINISHED;
-  // move temp file to final location
-  let dst = record.filePath + '/' + record.fileName;
-  //console.log('rename', record.tempFilePath, dst);
-  await fs.rename(record.tempFilePath, dst);
-  // this.emit(FileTransferManagerEvents.UPLOAD_FINISH, {record})
-  return { record };
- }
-
  async getRecord(id: string) {
   const record = this.records.get(id);
 
   if (record) {
    return record;
   }
-
-  //console.log('id', id);
 
   // proceed to find record in database
   const foundRecord = await this.findRecord(id);
@@ -114,7 +120,7 @@ class FileTransferManager extends EventEmitter {
 
  async getFileChunk(uploadId: string, offsetBytes: number, chunkSize: number) {
   const record = await this.getRecord(uploadId);
-  const filePath = record.filePath + '/' + record.fileName;
+  const filePath = makeFilePath(record);
   const file = Bun.file(filePath);
   const blob = file.slice(offsetBytes, offsetBytes + chunkSize);
   // blob to array
@@ -143,61 +149,28 @@ class FileTransferManager extends EventEmitter {
   return { chunk };
  }
 
- async downloadAttachment(record: FileUploadRecord, callback: (chunk: FileUploadChunk) => void) {
-  let chunkId = -1;
-  const chunkSize = record.chunkSize;
-  const filePath = `${record.filePath}/${record.fileName}`;
-
-  try {
-   const fd = fsSync.openSync(filePath, 'r'); // Open the file for reading
-   const buffer = Buffer.alloc(chunkSize); // Allocate a buffer for the chunk
-   let bytesRead;
-
-   // Read the file manually in chunks
-   while ((bytesRead = fsSync.readSync(fd, buffer, 0, chunkSize, null)) > 0) {
-    chunkId++;
-    const chunkData = {
-     chunkId,
-     uploadId: record.id,
-     checksum: '', // Add checksum logic if needed
-     data: buffer.slice(0, bytesRead).toString('base64'), // Convert chunk to Base64
-     fileSize: record.fileSize,
-     chunkSize
-    };
-
-    // Debug and pass the chunk to the callback
-    callback(chunkData);
+ async checkAndValidateFileUploads(records: FileUploadRecord[], updatedRecordCallback: (record: FileUploadRecord) => Promise<void>) {
+  for (const record of records) {
+   if ([FileUploadRecordStatus.FINISHED, FileUploadRecordStatus.CANCELED, FileUploadRecordStatus.ERROR].includes(record.status)) {
+    continue;
    }
 
-   // Clean up after reading
-   fsSync.closeSync(fd);
-   Log.debug('File transfer complete');
-  } catch (error: any) {
-   Log.error('Error while reading file:', error.message);
-   throw error;
-  }
- }
-
- async downloadAttachmentP2P(record: FileUploadRecord, callback: (chunk: FileUploadChunk) => void) {
-  setInterval(() => {
-   const tempChunks = this.p2pTempChunks.get(record.id) || [];
-   if (tempChunks.length > 0) {
-    const chunk = tempChunks.shift();
-    if (chunk) {
-     Log.debug('Sending chunk', chunk.chunkId, chunk.data.length);
-
-     const chunkData = {
-      chunkId: chunk.chunkId,
-      uploadId: record.id,
-      checksum: '', // Add checksum logic if needed
-      data: chunk.data, // Convert chunk to Base64
-      fileSize: record.fileSize,
-      chunkSize: record.chunkSize
-     };
-     callback(chunkData);
+   if ([FileUploadRecordStatus.BEGUN, FileUploadRecordStatus.UPLOADING, FileUploadRecordStatus.PAUSED].includes(record.status)) {
+    // check record.upload time for timeout
+    const now = Date.now();
+    const diff = now - record.updated.getTime();
+    if ((record.type === FileUploadRecordType.SERVER && diff > FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.TIMEOUT_ERROR_MS) || (record.type === FileUploadRecordType.P2P && diff > FILE_TRANSFER_SETTINGS.P2P_TRANSFER.TIMEOUT_ERROR_MS)) {
+     record.status = FileUploadRecordStatus.ERROR;
+     record.errorType = FileUploadErrorType.TIMEOUT_BY_SERVER;
+     try {
+      await updatedRecordCallback(record);
+     } catch (error) {
+      Log.error('Error updating record', error);
+     }
     }
    }
-  }, 1000);
+  }
+  return records;
  }
 }
 

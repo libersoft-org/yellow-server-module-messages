@@ -6,34 +6,57 @@ export enum FileUploadRecordType {
 export enum FileUploadRecordStatus {
  BEGUN = 'BEGUN',
  UPLOADING = 'UPLOADING',
+ PAUSED = 'PAUSED',
  FINISHED = 'FINISHED',
  CANCELED = 'CANCELED',
- PAUSED = 'PAUSED',
  ERROR = 'ERROR'
 }
 
-export interface FileUploadRecord {
+export enum FileUploadErrorType {
+ TIMEOUT_BY_SERVER = 'TIMEOUT_BY_SERVER'
+}
+
+export interface BaseFileUploadRecord {
  id: string;
  fromUserId: number;
+ fromUserUid: string;
  type: FileUploadRecordType;
  status: FileUploadRecordStatus;
+ errorType: FileUploadErrorType | null;
 
- fileName: string;
+ fileOriginalName: string;
  fileMimeType: string;
  fileSize: number;
- filePath: string;
 
- tempFilePath: string;
+ fileName: string | null; // only for SERVER type
+ fileFolder: string | null; // only for SERVER type
+ fileExtension: string | null; // only for SERVER type
 
  chunkSize: number;
  chunksReceived: number[];
+
+ created: Date;
+ updated: Date;
 }
+
+export interface P2PFileUploadRecord extends BaseFileUploadRecord {
+ type: FileUploadRecordType.P2P;
+}
+
+export interface ServerFileUploadRecord extends BaseFileUploadRecord {
+ type: FileUploadRecordType.SERVER;
+ fileName: string;
+ fileFolder: string;
+ fileExtension: string;
+}
+
+export type FileUploadRecord = ServerFileUploadRecord | P2PFileUploadRecord;
 
 export interface AttachmentRecord {
  id: string;
  userId: number;
  fileTransferId: string;
- filePath: string;
+ filePath: string | null;
 }
 
 export interface FileUploadChunk {
@@ -53,3 +76,5 @@ export enum FileUploadRole {
  SENDER = 'SENDER',
  RECEIVER = 'RECEIVER'
 }
+
+export type FileUploadBeginData = Pick<FileUploadRecord, 'id' | 'fromUserId' | 'fromUserUid' | 'type' | 'fileOriginalName' | 'fileMimeType' | 'fileSize' | 'fileFolder' | 'chunkSize'>;

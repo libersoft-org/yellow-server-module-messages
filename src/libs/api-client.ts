@@ -1,10 +1,10 @@
 import { ModuleApiBase, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
-import FileTransferManager from './FileTransfer/FileTransferManager';
-import { FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
-import {makeAttachmentRecord, pickFileUploadRecordFields} from './FileTransfer/utils';
+import { FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType, FileUploadRole } from './FileTransfer/types';
+import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer/utils';
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
-import {UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND} from "./FileTransfer/constants.ts";
+import { UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND } from './FileTransfer/constants.ts';
+import { FILE_TRANSFER_SETTINGS } from './FileTransfer/settings.ts';
 
 let Log = newLogger('api-client');
 
@@ -15,7 +15,6 @@ enum MessageFormat {
 
 export class ApiClient extends ModuleApiBase {
  message_seen_mutex: Mutex;
- fileTransferManager: FileTransferManager;
 
  // TODO: move this function to common:
  isEnumValue(value: string): boolean {
@@ -39,23 +38,48 @@ export class ApiClient extends ModuleApiBase {
    upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
   };
   this.message_seen_mutex = new Mutex();
+  this.runFileUploadsCleanup();
+ }
 
-  // todo: MAKE THIS SYNC AFTER FIXING INIT!!! // todo: don't do this before app start
-  setTimeout(() => {
-   this.fileTransferManager = new FileTransferManager({
-    findRecord: app.data.getFileUpload.bind(app.data)
+ async runFileUploadsCleanup() {
+  while (true) {
+   // wait for next iteration
+   await new Promise(resolve => setTimeout(resolve, FILE_TRANSFER_SETTINGS.CLEANUP_INTERVAL_MS));
+   Log.info('Running file uploads cleanup');
+
+   // first get appropriate records from db
+   const dbRecords = await this.app.data.getFileUploadsForCheck();
+   // now combine it with in-memory records from fileTransferManager
+   const inMemoryRecords = Array.from(this.app.fileTransferManager.records.values());
+   // combine both where memory records have priority
+   const records = [...inMemoryRecords, ...dbRecords].reduce((acc, record) => {
+    if (!acc.some(r => r.id === record.id)) {
+     acc.push(record);
+    }
+    return acc;
+   }, []);
+
+   Log.info('Checking and validating file uploads', records.length);
+
+   await this.app.fileTransferManager.checkAndValidateFileUploads(records, async (updatedRecord: FileUploadRecord) => {
+    Log.info('Updating file upload record', updatedRecord.id, updatedRecord.status, updatedRecord.errorType);
+    await this.app.data.updateFileUpload(updatedRecord.id, {
+     status: updatedRecord.status,
+     error_type: updatedRecord.errorType
+    });
+    await this.send_upload_update_notification(updatedRecord);
    });
-  });
+  }
  }
 
  async download_chunk(c) {
   const { uploadId, offsetBytes, chunkSize } = c.params;
 
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
 
   if (record.type === FileUploadRecordType.SERVER) {
-   const { chunk } = await this.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
+   const { chunk } = await this.app.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
    return {
     error: 0,
     chunk
@@ -64,24 +88,37 @@ export class ApiClient extends ModuleApiBase {
    try {
     // todo: change chunkId to offsetBytes and chunkSize to support dynamic chunk size in future
     const chunkId = Math.floor(offsetBytes / chunkSize);
-    const { chunk } = await this.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
+    const { chunk } = await this.app.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
 
     // prefetch
-    // todo: make better & support dynamic chunksize
-    const existingP2PChunks = this.fileTransferManager.p2pTempChunks.get(uploadId);
+    // todo: make better & support dynamic chunksize in future
+    const existingP2PChunks = this.app.fileTransferManager.p2pTempChunks.get(uploadId);
     const chunksLength = existingP2PChunks?.length;
-    const prefetchTolerance = 5;
-    const prefetchDiff = chunksLength - prefetchTolerance;
-    if (chunk.chunkId > prefetchDiff) {
-     const lastChunk = existingP2PChunks[chunksLength - 1];
-     if (lastChunk) {
-      this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
-       uploadId,
-       offsetBytes: lastChunk.chunkId * chunkSize,
-       chunkSize
-      });
+    if (chunksLength) {
+     const prefetchTolerance = 10;
+     const prefetchDiff = chunksLength - prefetchTolerance;
+     if (chunk.chunkId >= prefetchDiff) {
+      const lastChunk = existingP2PChunks[chunksLength - 1];
+      if (lastChunk) {
+       this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
+        uploadId,
+        offsetBytes: lastChunk.chunkId * chunkSize,
+        chunkSize
+       });
+      }
      }
     }
+
+    // non-blocking p2p memory chunks clear
+    setTimeout(() => {
+     const forgetTolerance = 10;
+     // set null to chunks that are not needed anymore (based on prev chunk.chunkId and forgetTolerance)
+     if (chunksLength && chunk.chunkId > forgetTolerance) {
+      for (let i = 0; i < chunk.chunkId - forgetTolerance; i++) {
+       existingP2PChunks[i] = null;
+      }
+     }
+    });
 
     return {
      error: 0,
@@ -104,24 +141,80 @@ export class ApiClient extends ModuleApiBase {
   }
  }
 
+ async upload_chunk(c) {
+  const { chunk } = c.params;
+  const process = await this.app.fileTransferManager.processChunk(chunk);
+  const { record } = process;
+
+  await this.app.data.updateFileUpload(record.id, {
+   chunks_received: JSON.stringify(record.chunksReceived)
+  });
+
+  if (record.status === FileUploadRecordStatus.BEGUN) {
+   await this.app.data.updateFileUpload(record.id, {
+    status: FileUploadRecordStatus.UPLOADING
+   });
+   record.status = FileUploadRecordStatus.UPLOADING;
+   this.send_upload_update_notification(record);
+  }
+
+  // check if finished
+  // todo: check if its ok for p2p
+  if (record.status === FileUploadRecordStatus.FINISHED) {
+   await this.app.data.updateFileUpload(record.id, {
+    status: FileUploadRecordStatus.FINISHED
+   });
+   this.send_upload_update_notification(record);
+  }
+
+  return { error: 0, message: 'Chunk accepted' };
+ }
+
+ async upload_get(c) {
+  const { id } = c.params;
+  try {
+   const record = await this.app.fileTransferManager.getRecord(id);
+
+   // check file access permission
+   const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
+   if (!owners.some(owner => owner.userId === c.userID)) {
+    return { error: 2, message: 'You are not allowed to access this record' };
+   }
+
+   return {
+    error: 0,
+    data: {
+     record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
+     uploadData: {
+      role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
+     }
+    }
+   };
+  } catch (err) {
+   Log.error('Upload record not found', err);
+   return { error: 1, message: 'Record not found' };
+  }
+ }
+
  async upload_begin(c) {
   const { records, recipients } = c.params;
 
   if (!records) return { error: 1, message: 'Records are missing' };
   if (!recipients) return { error: 2, message: 'Recipients are missing' };
 
-  const allowedRecords = [];
-  const disallowedRecords = [];
+  const allowedRecords: any[] = [];
+  const disallowedRecords: any[] = [];
   for (let record of records) {
-   const { id, fileName, fileMimeType, fileSize, type } = record;
-   const updatedRecord = await this.fileTransferManager.uploadBegin({
+   const { id, fileOriginalName, fileMimeType, fileSize, type, chunkSize, fromUserUid } = record;
+   const updatedRecord = await this.app.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
+    fromUserUid,
     type,
-    fileName,
+    fileOriginalName,
     fileMimeType,
     fileSize,
-    filePath: 'uploads/message-attachments'
+    chunkSize
    });
    await this.app.data.createFileUpload(updatedRecord);
 
@@ -130,7 +223,8 @@ export class ApiClient extends ModuleApiBase {
     makeAttachmentRecord({
      userId: c.userID,
      fileTransferId: updatedRecord.id,
-     filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+     // todo: when encrypted, this should be separate file path???
+     filePath: updatedRecord.type === FileUploadRecordType.P2P ? null : FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.USER_FILE_NAME_STRATEGY(updatedRecord)
     })
    );
 
@@ -157,7 +251,7 @@ export class ApiClient extends ModuleApiBase {
      makeAttachmentRecord({
       userId: userToID,
       fileTransferId: updatedRecord.id,
-      filePath: updatedRecord.filePath // todo: when encrypted, this should be separate file path???
+      filePath: updatedRecord.type === FileUploadRecordType.P2P ? null : FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.USER_FILE_NAME_STRATEGY(updatedRecord)
      })
     );
    }
@@ -170,7 +264,7 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_cancel(c) {
   const { uploadId } = c.params;
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
   record.status = FileUploadRecordStatus.CANCELED;
   await this.app.data.updateFileUpload(record.id, {
@@ -182,7 +276,7 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_update_status(c) {
   const { uploadId, status: newStatus } = c.params;
-  const record = await this.fileTransferManager.getRecord(uploadId);
+  const record = await this.app.fileTransferManager.getRecord(uploadId);
   if (!record) return { error: 1, message: 'Record not found' };
 
   const updateStatusAndSendNotification = async status => {
@@ -208,60 +302,13 @@ export class ApiClient extends ModuleApiBase {
     return { error: 3, message: 'Invalid status change to UPLOADING from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.UPLOADING);
+  } else if (newStatus === FileUploadRecordStatus.ERROR) {
+   await updateStatusAndSendNotification(FileUploadRecordStatus.ERROR);
   } else {
    return { error: 2, message: 'Invalid status: ' + record.status };
   }
 
   return { error: 0, message: 'Upload updated' };
- }
-
- async upload_chunk(c) {
-  const { chunk } = c.params;
-  const process = await this.fileTransferManager.processChunk(chunk);
-  const { record } = process;
-
-  await this.app.data.updateFileUpload(record.id, {
-   chunks_received: JSON.stringify(record.chunksReceived),
-   status: FileUploadRecordStatus.UPLOADING
-  });
-
-  if (record.status === FileUploadRecordStatus.BEGUN) {
-   record.status = FileUploadRecordStatus.UPLOADING;
-   this.send_upload_update_notification(record);
-  }
-
-  // check if finished
-  if (record.status === FileUploadRecordStatus.FINISHED) {
-   await this.app.data.updateFileUpload(record.id, {
-    status: FileUploadRecordStatus.FINISHED
-   });
-   this.send_upload_update_notification(record);
-  }
-
-  return { error: 0, message: 'Chunk accepted' };
- }
-
- async upload_get(c) {
-  const { id } = c.params;
-  const record = await this.fileTransferManager.getRecord(id);
-  //const record = await this.fileTransferManager.getRecord(id)
-
-  // check file access permission
-  const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
-  if (!owners.some(owner => owner.userId === c.userID)) {
-   return { error: 1, message: 'You are not allowed to access this record' };
-  }
-
-  if (!record) return { error: 1, message: 'Record not found' };
-  return {
-   error: 0,
-   data: {
-    record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
-    uploadData: {
-     role: c.userID === record.fromUserId ? FileUploadRole.SENDER : FileUploadRole.RECEIVER
-    }
-   }
-  };
  }
 
  async send_upload_update_notification(record, ignoreUserIds = []) {
@@ -301,7 +348,7 @@ export class ApiClient extends ModuleApiBase {
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
-  console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
+  //console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
