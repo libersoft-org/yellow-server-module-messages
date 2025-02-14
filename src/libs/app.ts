@@ -89,7 +89,7 @@ class App extends ModuleAppBase {
     json: {
      enabled: false,
      name: 'json.log',
-     level: 'trace'
+     level: 'debug'
     },
     elasticsearch: {
      enabled: false
