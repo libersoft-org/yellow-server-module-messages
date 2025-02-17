@@ -1,23 +1,23 @@
 {
- "name": "yellow-module-messages",
- "dependencies": {
-  "async-mutex": "^0.5.0",
-  "change-case": "^5.4.4",
-  "lodash": "^4.17.21",
-  "mariadb": "*",
-  "typescript": "^5.6.3",
-  "uuid": "^11.0.4",
-  "vite-plugin-checker": "^0.8.0",
-  "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#5633eec3fb875e0a09df5d349070b4a8ffb27e66"
- },
- "devDependencies": {
-  "@types/bun": "^1.1.13",
-  "@types/jest": "^29.5.14",
-  "@types/lodash": "^4.17.15",
-  "jest": "^29.7.0",
-  "ts-jest": "^29.2.5"
- },
- "scripts": {
-  "typecheck": "tsc --noEmit"
- }
+  "name": "yellow-module-messages",
+  "dependencies": {
+    "async-mutex": "^0.5.0",
+    "change-case": "^5.4.4",
+    "lodash": "^4.17.21",
+    "mariadb": "*",
+    "typescript": "^5.6.3",
+    "uuid": "^11.0.4",
+    "vite-plugin-checker": "^0.8.0",
+    "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#6d884c1b26bc55c4eea35cf7af862c29ec4c6fee"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.13",
+    "@types/jest": "^29.5.14",
+    "@types/lodash": "^4.17.15",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
 }
