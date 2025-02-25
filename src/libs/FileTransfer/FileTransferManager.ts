@@ -89,7 +89,10 @@ class FileTransferManager extends EventEmitter {
     await fs.rename(makeTempFilePath(record), dst);
    }
 
-   await this.patchRecord(record.id, record);
+   await this.patchRecord(record.id, {
+    chunksReceived: record.chunksReceived,
+    status: record.status
+   });
 
    return { record, chunk };
   } catch (error) {
