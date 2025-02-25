@@ -29,7 +29,6 @@ export class ApiClient extends ModuleApiBase {
    message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
    messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
    conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
-
    upload_begin: { method: this.upload_begin.bind(this), reqUserSession: true },
    upload_chunk: { method: this.upload_chunk.bind(this), reqUserSession: true },
    upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
@@ -46,21 +45,16 @@ export class ApiClient extends ModuleApiBase {
    // wait for next iteration
    await new Promise(resolve => setTimeout(resolve, FILE_TRANSFER_SETTINGS.CLEANUP_INTERVAL_MS));
    Log.info('Running file uploads cleanup');
-
    // first get appropriate records from db
    const dbRecords = await this.app.data.getFileUploadsForCheck();
    // now combine it with in-memory records from fileTransferManager
    const inMemoryRecords = Array.from(this.app.fileTransferManager.records.values());
    // combine both where memory records have priority
    const records = [...inMemoryRecords, ...dbRecords].reduce((acc, record) => {
-    if (!acc.some(r => r.id === record.id)) {
-     acc.push(record);
-    }
+    if (!acc.some(r => r.id === record.id)) acc.push(record);
     return acc;
    }, []);
-
    Log.info('Checking and validating file uploads', dbRecords.length);
-
    await this.app.fileTransferManager.checkAndValidateFileUploads(dbRecords, async (updatedRecord: FileUploadRecord) => {
     await this.send_upload_update_notification({ record: updatedRecord });
    });
@@ -69,22 +63,16 @@ export class ApiClient extends ModuleApiBase {
 
  async download_chunk(c) {
   const { uploadId, offsetBytes, chunkSize } = c.params;
-
   const record = await this.app.fileTransferManager.getRecord(uploadId);
-  if (!record) return { error: 1, message: 'Record not found' };
-
+  if (!record) return { error: 'RECORD_NOT_FOUND', message: 'Record not found' };
   if (record.type === FileUploadRecordType.SERVER) {
    const { chunk } = await this.app.fileTransferManager.getFileChunk(uploadId, offsetBytes, chunkSize);
-   return {
-    error: 0,
-    chunk
-   };
+   return { error: false, chunk };
   } else if (record.type === FileUploadRecordType.P2P) {
    try {
     // todo: change chunkId to offsetBytes and chunkSize to support dynamic chunk size in future
     const chunkId = Math.floor(offsetBytes / chunkSize);
     const { chunk } = await this.app.fileTransferManager.getFileChunkP2P(uploadId, chunkId);
-
     // prefetch
     // todo: make better & support dynamic chunksize in future
     const existingP2PChunks = this.app.fileTransferManager.p2pTempChunks.get(uploadId);
@@ -114,11 +102,7 @@ export class ApiClient extends ModuleApiBase {
       }
      }
     });
-
-    return {
-     error: 0,
-     chunk
-    };
+    return { error: false, chunk };
    } catch (e) {
     if (e instanceof DownloadChunkP2PNotFoundError) {
      this.signals.notifyUser(record.fromUserId, 'ask_for_chunk', {
@@ -126,13 +110,13 @@ export class ApiClient extends ModuleApiBase {
       offsetBytes,
       chunkSize
      });
-     return { error: 2, message: 'Wait for chunk' };
+     return { error: 'WAIT_FOR_CHUNK', message: 'Wait for chunk' };
     } else {
-     return { error: 3, message: 'Chunk could not be obtained' };
+     return { error: 'CHUNK_UNAVAILABLE', message: 'Chunk could not be obtained' };
     }
    }
   } else {
-   return { error: 4, message: 'Unknown record type' };
+   return { error: 'UNKNOWN RECORD TYPE', message: 'Unknown record type' };
   }
  }
 
@@ -140,13 +124,11 @@ export class ApiClient extends ModuleApiBase {
   const { chunk } = c.params;
   const process = await this.app.fileTransferManager.processChunk(chunk);
   let record = process.record;
-
   if (record.status === FileUploadRecordStatus.BEGUN) {
    record = await this.app.fileTransferManager.patchRecord(record.id, { status: FileUploadRecordStatus.UPLOADING });
    // with first chunk received, update status to UPLOADING
    await this.send_upload_update_notification({ record });
   }
-
   if (record.type === FileUploadRecordType.SERVER) {
    // update progress
    this.send_upload_update_notification({
@@ -156,29 +138,21 @@ export class ApiClient extends ModuleApiBase {
     }
    });
   }
-
   // check if finished
   // todo: check if its ok for p2p
-  if (record.status === FileUploadRecordStatus.FINISHED) {
-   this.send_upload_update_notification({ record });
-  }
-
-  return { error: 0, message: 'Chunk accepted' };
+  if (record.status === FileUploadRecordStatus.FINISHED) this.send_upload_update_notification({ record });
+  return { error: false, message: 'Chunk accepted' };
  }
 
  async upload_get(c) {
   const { id } = c.params;
   try {
    const record = await this.app.fileTransferManager.getRecord(id);
-
    // check file access permission
    const owners = await this.app.data.getAttachmentsByFileTransferId(record.id);
-   if (!owners.some(owner => owner.userId === c.userID)) {
-    return { error: 2, message: 'You are not allowed to access this record' };
-   }
-
+   if (!owners.some(owner => owner.userId === c.userID)) return { error: 2, message: 'You are not allowed to access this record' };
    return {
-    error: 0,
+    error: false,
     data: {
      record: pickFileUploadRecordFields(record, UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND),
      uploadData: {
@@ -189,16 +163,14 @@ export class ApiClient extends ModuleApiBase {
    };
   } catch (err) {
    Log.error('Upload record not found', err);
-   return { error: 1, message: 'Record not found' };
+   return { error: 'RECORD_NOT_FOUND', message: 'Record not found' };
   }
  }
 
  async upload_begin(c) {
   const { records, recipients } = c.params;
-
-  if (!records) return { error: 1, message: 'Records are missing' };
-  if (!recipients) return { error: 2, message: 'Recipients are missing' };
-
+  if (!records) return { error: 'RECORDS_MISSING', message: 'Records are missing' };
+  if (!recipients) return { error: 'RECIPIENTS_MISSING', message: 'Recipients are missing' };
   const allowedRecords: any[] = [];
   const disallowedRecords: any[] = [];
   for (let record of records) {
@@ -213,7 +185,6 @@ export class ApiClient extends ModuleApiBase {
     fileSize,
     chunkSize
    });
-
    // create attachment for sender
    await this.app.data.createAttachment(
     makeAttachmentRecord({
@@ -223,7 +194,6 @@ export class ApiClient extends ModuleApiBase {
      filePath: updatedRecord.type === FileUploadRecordType.P2P ? null : FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.USER_FILE_NAME_STRATEGY(updatedRecord)
     })
    );
-
    // create attachments for each recipient
    for (let recipientAddress of recipients) {
     // todo: refactor this to a separate function
@@ -234,15 +204,12 @@ export class ApiClient extends ModuleApiBase {
     }
     usernameTo = usernameTo.toLowerCase();
     domainTo = domainTo.toLowerCase();
-
     const domainToID = await this.core.api.getDomainIDByName(domainTo);
-
     if (!domainToID) {
      Log.error('Domain name not found on this server', domainTo);
      continue;
     }
     const userToID = await this.core.api.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
-
     await this.app.data.createAttachment(
      makeAttachmentRecord({
       userId: userToID,
@@ -251,31 +218,27 @@ export class ApiClient extends ModuleApiBase {
      })
     );
    }
-
    allowedRecords.push(updatedRecord);
   }
 
-  return { error: 0, message: 'Upload started', allowedRecords, disallowedRecords };
+  return { error: false, message: 'Upload started', allowedRecords, disallowedRecords };
  }
 
  async upload_cancel(c) {
   const { uploadId } = c.params;
   let record = await this.app.fileTransferManager.getRecord(uploadId);
-  if (!record) return { error: 1, message: 'Record not found' };
-
+  if (!record) return { error: 'RECORD_NOT_FOUND', message: 'Record not found' };
   record = await this.app.fileTransferManager.patchRecord(record.id, {
    status: FileUploadRecordStatus.CANCELED
   });
-
   await this.send_upload_update_notification({ record });
-  return { error: 0, message: 'Upload canceled' };
+  return { error: false, message: 'Upload canceled' };
  }
 
  async upload_update_status(c) {
   const { uploadId, status: newStatus } = c.params;
   let record = await this.app.fileTransferManager.getRecord(uploadId);
-  if (!record) return { error: 1, message: 'Record not found' };
-
+  if (!record) return { error: 'RECORD_NOT_FOUND', message: 'Record not found' };
   const updateStatusAndSendNotification = async (status: FileUploadRecordStatus) => {
    record = await this.app.fileTransferManager.patchRecord(record.id, { status });
    await this.send_upload_update_notification({ record });
@@ -283,26 +246,25 @@ export class ApiClient extends ModuleApiBase {
 
   if (newStatus === FileUploadRecordStatus.CANCELED) {
    if (record.status !== FileUploadRecordStatus.UPLOADING || record.status !== FileUploadRecordStatus.BEGUN || record.status !== FileUploadRecordStatus.PAUSED) {
-    return { error: 3, message: 'Invalid status change to CANCELED from ' + record.status };
+    return { error: 'INVALID_STATUS_CHANGE', message: 'Invalid status change to CANCELED from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.CANCELED);
   } else if (newStatus === FileUploadRecordStatus.PAUSED) {
    if (record.status !== FileUploadRecordStatus.UPLOADING) {
-    return { error: 3, message: 'Invalid status change to PAUSED from ' + record.status };
+    return { error: 'INVALID_STATUS_CHANGE', message: 'Invalid status change to PAUSED from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.PAUSED);
   } else if (newStatus === FileUploadRecordStatus.UPLOADING) {
    if (record.status !== FileUploadRecordStatus.PAUSED) {
-    return { error: 3, message: 'Invalid status change to UPLOADING from ' + record.status };
+    return { error: 'INVALID_STATUS_CHANGE', message: 'Invalid status change to UPLOADING from ' + record.status };
    }
    await updateStatusAndSendNotification(FileUploadRecordStatus.UPLOADING);
   } else if (newStatus === FileUploadRecordStatus.ERROR) {
    await updateStatusAndSendNotification(FileUploadRecordStatus.ERROR);
   } else {
-   return { error: 2, message: 'Invalid status: ' + record.status };
+   return { error: 'INVALID_STATUS', message: 'Invalid status: ' + record.status };
   }
-
-  return { error: 0, message: 'Upload updated' };
+  return { error: false, message: 'Upload updated' };
  }
 
  async send_upload_update_notification({ record, uploadData }: { record: FileUploadRecord; uploadData?: any }, ignoreUserIds = []) {
@@ -320,24 +282,24 @@ export class ApiClient extends ModuleApiBase {
  }
 
  async message_send(c) {
-  if (!c.params) return { error: 1, message: 'Parameters are missing' };
-  if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
+  if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
+  if (!c.params.address) return { error: 'RECIPIENT_ADDRESS_MISSING', message: 'Recipient address is missing' };
   const userToAddress = c.params.address;
   let [usernameTo, domainTo] = userToAddress.split('@');
-  if (!usernameTo || !domainTo) return { error: 4, message: 'Invalid username format' };
+  if (!usernameTo || !domainTo) return { error: 'INVALID_USERNAME_FORMAT', message: 'Invalid username format' };
   usernameTo = usernameTo.toLowerCase();
   domainTo = domainTo.toLowerCase();
   const domainToID = await this.core.api.getDomainIDByName(domainTo);
-  if (!domainToID) return { error: 5, message: 'Domain name not found on this server' };
+  if (!domainToID) return { error: 'DOMAIN_NOT_FOUND', message: 'Domain name not found on this server' };
   const userToID = await this.core.api.getUserIDByUsernameAndDomainID(usernameTo, domainToID);
-  if (!userToID) return { error: 6, message: 'User name not found on this server' };
+  if (!userToID) return { error: 'USERNAME_NOT_FOUND', message: 'User name not found on this server' };
   const userFromInfo = await this.core.api.userGetUserInfo(c.userID);
   const userFromDomain = await this.core.api.getDomainNameByID(userFromInfo.id_domains);
   const userFromAddress = userFromInfo.username + '@' + userFromDomain;
-  if (!c.params.message) return { error: 7, message: 'Message is missing' };
+  if (!c.params.message) return { error: 'MESSAGE_MISSING', message: 'Message is missing' };
   let format = c.params.format ? c.params.format : 'plaintext';
-  if (!this.isEnumValue(format)) return { error: 8, message: 'Invalid message format' };
-  if (!c.params.uid) return { error: 9, message: 'Message UID is missing' };
+  if (!this.isEnumValue(format)) return { error: 'INVALID_MESSAGE_FORMAT', message: 'Invalid message format' };
+  if (!c.params.uid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
   const uid = c.params.uid;
   // TODO: don't define "created" here, rather do SELECT on table after INSERT
   const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -371,19 +333,19 @@ export class ApiClient extends ModuleApiBase {
    };
    this.signals.notifyUser(userToID, 'new_message', msg2);
   }
-  return { error: 0, message: 'Message sent', uid };
+  return { error: false, message: 'Message sent', uid };
  }
 
  async message_seen(c) {
-  if (!c.params) return { error: 1, message: 'Parameters are missing' };
-  if (!c.params.uid) return { error: 2, message: 'Message UID is missing' };
-  if (!c.userID) throw new Error('User ID is missing');
+  if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
+  if (!c.params.uid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
+  if (!c.userID) throw new Error('User ID is missing'); // TODO: why not return?
   let result = await this.message_seen_mutex.runExclusive(async () => {
    // TRANSACTION BEGIN
    const res = await this.app.data.userGetMessage(c.userID, c.params.uid);
-   if (!res) return { error: 3, message: 'Wrong message ID' };
+   if (!res) return { error: 'WRONG_MESSAGE_ID', message: 'Wrong message ID' };
    //Log.debug(c.corr, 'res....seen:', res);
-   if (res.seen) return { error: 4, message: 'Seen flag was already set' };
+   if (res.seen) return { error: 'SEEN_ALREADY_SET', message: 'Seen flag was already set' };
    await this.app.data.userMessageSeen(c.params.uid);
    // TRANSACTION END
    return true;
@@ -401,14 +363,14 @@ export class ApiClient extends ModuleApiBase {
    address_from: res2.address_from,
    seen: res2.seen
   });
-  return { error: 0, message: 'Seen flag set successfully' };
+  return { error: false, message: 'Seen flag set successfully' };
  }
 
  async messages_list(c) {
-  if (!c.params) return { error: 1, message: 'Parameters are missing' };
-  if (!c.params.address) return { error: 2, message: 'Recipient address is missing' };
+  if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
+  if (!c.params.address) return { error: 'RECIPIENT_ADDRESS_MISSING', message: 'Recipient address is missing' };
   const messages = await this.app.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.base, c.params?.prev, c.params?.next);
-  return { error: 0, data: { messages } };
+  return { error: false, data: { messages } };
  }
 
  async conversations_list(c) {
@@ -418,6 +380,6 @@ export class ApiClient extends ModuleApiBase {
    Log.debug(c.corr, i);
   }
   conversations.meta = undefined;
-  return { error: 0, data: { conversations } };
+  return { error: false, data: { conversations } };
  }
 }
