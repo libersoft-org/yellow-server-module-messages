@@ -199,7 +199,7 @@ class Data extends DataGeneric {
   return res;
  }
 
- async userListMessages(userID: number, address_my: string, address_other: string, base: number | 'unseen' = 0, prevCount = 0, nextCount = 0): Promise<Message[]> {
+ async userListMessages(userID: number, address_my: string, address_other: string, base: number | 'unseen' | string = 0, prevCount = 0, nextCount = 0): Promise<Message[]> {
   let base_id;
   Log.debug('userListMessages', userID, address_my, address_other, base, prevCount, nextCount);
   if (base === 'unseen') {
@@ -208,6 +208,11 @@ class Data extends DataGeneric {
    if (base_id == null) base_id = await this.getLastMessageID(userID, address_my, address_other);
    Log.debug('base_id', base_id);
    if (base_id == null || base_id === undefined) return [];
+  } else if (typeof base === 'string' && base.startsWith('uid:')) {
+   const uid = base.slice(4);
+   const message = await this.userGetMessage(userID, uid);
+   if (!message) return [];
+   base_id = message.id;
   } else base_id = base;
   /* fixme...*/
   let result = [await this.getMessage(userID, base_id)];
