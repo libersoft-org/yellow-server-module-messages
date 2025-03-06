@@ -7,3 +7,4 @@ src/bun.lockb.txt
 .idea
 uploads/*
 src/uploads/*
+.aider*
