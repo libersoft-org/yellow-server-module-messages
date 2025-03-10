@@ -12,7 +12,7 @@
         "typescript": "^5.6.3",
         "uuid": "^11.0.4",
         "vite-plugin-checker": "^0.8.0",
-        "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#182c327b96bbaa1a9f07654c452d517f31d6c71a",
+        "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#5204bb4f2c26b927f75a29e07be6ac05f2b1d89f",
       },
       "devDependencies": {
         "@types/bun": "^1.1.13",
@@ -498,6 +498,8 @@
 
     "human-signals": ["human-signals@2.1.0", "", {}, "sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw=="],
 
+    "i": ["i@0.3.7", "", {}, "sha512-FYz4wlXgkQwIPqhzC5TdNMLSE5+GS1IIDJZY/1ZiEPCT2S3COUVZeT5OW4BmW4r5LHLQuOosSwsvnroG9GR59Q=="],
+
     "iconv-lite": ["iconv-lite@0.6.3", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw=="],
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
@@ -896,7 +898,7 @@
 
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
-    "yellow-server-common": ["yellow-server-common@github:libersoft-org/yellow-server-common#182c327", { "dependencies": { "@elastic/ecs-pino-format": "^1.5.0", "async-mutex": "^0.5.0", "mariadb": "2", "mysql": "^2.18.1", "pino": "8", "pino-elasticsearch": "^8.1.0", "pino-pretty": "^13.0.0", "sql-client": "^3.0.0" } }, "libersoft-org-yellow-server-common-182c327"],
+    "yellow-server-common": ["yellow-server-common@github:libersoft-org/yellow-server-common#5204bb4", { "dependencies": { "@elastic/ecs-pino-format": "^1.5.0", "async-mutex": "^0.5.0", "i": "^0.3.7", "mariadb": "2", "mysql": "^2.18.1", "pino": "8", "pino-elasticsearch": "^8.1.0", "pino-pretty": "^13.0.0", "sql-client": "^3.0.0" } }, "libersoft-org-yellow-server-common-5204bb4"],
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
