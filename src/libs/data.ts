@@ -3,6 +3,7 @@ import { Mutex } from 'async-mutex';
 import { AttachmentRecord, FileUploadRecord, FileUploadRecordStatus } from './FileTransfer/types.ts';
 import * as changeKeys from 'change-case/keys';
 import _cloneDeep from 'lodash/cloneDeep';
+import { convertUploadRecordFromDB, convertUploadRecordToDB } from './FileTransfer/utils.ts';
 
 let Log = newLogger('data');
 
@@ -68,6 +69,10 @@ class Data extends DataGeneric {
      updated            timestamp    NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
+   await this.db.query(`
+    ALTER TABLE file_uploads
+    ADD metadata json NULL AFTER chunks_received;
+   `);
   } catch (ex) {
    Log.info(ex);
    process.exit(1);
@@ -75,45 +80,30 @@ class Data extends DataGeneric {
  }
 
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
+  fileUploadRecord = convertUploadRecordToDB(fileUploadRecord) as FileUploadRecord;
+  // @ts-ignore
+  const values = [fileUploadRecord.id, fileUploadRecord.from_user_id, fileUploadRecord.from_user_uid, fileUploadRecord.type, fileUploadRecord.file_original_name, fileUploadRecord.file_name, fileUploadRecord.file_mime_type, fileUploadRecord.file_size, fileUploadRecord.file_folder, fileUploadRecord.file_extension, fileUploadRecord.chunk_size, fileUploadRecord.status, fileUploadRecord.metadata];
   return await this.db.query(
    `
-    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO file_uploads (id, from_user_id, from_user_uid, type, file_original_name, file_name, file_mime_type, file_size, file_folder, file_extension, chunk_size, status, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    `,
-   [fileUploadRecord.id, fileUploadRecord.fromUserId, fileUploadRecord.fromUserUid, fileUploadRecord.type, fileUploadRecord.fileOriginalName, fileUploadRecord.fileName, fileUploadRecord.fileMimeType, fileUploadRecord.fileSize, fileUploadRecord.fileFolder, fileUploadRecord.fileExtension, fileUploadRecord.chunkSize, fileUploadRecord.status]
+   values
   );
  }
 
  async getFileUpload(id: string) {
   const data = (await this.db.query('SELECT * FROM file_uploads WHERE id = ?', [id])) as any;
-  let record = data?.[0];
-
-  if (record) {
-   record = changeKeys.camelCase(record) as FileUploadRecord;
-   record.chunksReceived = record.chunksReceived ? JSON.parse(record.chunksReceived) : [];
-  }
-
-  return record;
+  return convertUploadRecordFromDB(data?.[0]);
  }
 
  async getFileUploadsForCheck() {
   const data = await this.db.query('SELECT * FROM file_uploads WHERE status = ? OR status = ? OR status = ? ORDER BY created DESC', [FileUploadRecordStatus.BEGUN, FileUploadRecordStatus.UPLOADING, FileUploadRecordStatus.PAUSED]);
-
-  // transform to camelCase
-  return data.map((record: any) => {
-   record = changeKeys.camelCase(record) as FileUploadRecord;
-   record.chunksReceived = record.chunksReceived ? JSON.parse(record.chunksReceived) : [];
-   return record;
-  });
+  return data.map(convertUploadRecordFromDB);
  }
 
- async patchFileUpload(id: string, _data: Partial<FileUploadRecord>) {
-  let data = _cloneDeep(_data);
-  // make data transformations
-  if (data.chunksReceived && typeof data.chunksReceived !== 'string') {
-   data.chunksReceived = JSON.stringify(data.chunksReceived) as any;
-  }
-  data = changeKeys.snakeCase(data) as any;
+ async patchFileUpload(id: string, data: Partial<FileUploadRecord>) {
+  data = convertUploadRecordToDB(data);
   const keys = Object.keys(data);
   const values = Object.values(data);
   const set = keys.map((key, i) => `${key} = ?`).join(', ');
@@ -121,8 +111,6 @@ class Data extends DataGeneric {
  }
 
  async createAttachment(attachmentRecord: AttachmentRecord) {
-  Log.debug('!!! attachmentRecord', attachmentRecord);
-  Log.debug('!!! attachmentRecord 2', [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]);
   return await this.db.query(
    `
    INSERT INTO attachments (id, user_id, file_transfer_id, file_path)

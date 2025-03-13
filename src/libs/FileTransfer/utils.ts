@@ -3,6 +3,11 @@ import { AttachmentRecord, type FileUploadRecord, FileUploadRecordStatus, FileUp
 import { FILE_TRANSFER_SETTINGS } from './settings.ts';
 import path from 'path';
 import sanitizeFilename from 'sanitize-filename';
+import * as changeKeys from 'change-case/keys';
+import _cloneDeep from 'lodash/cloneDeep';
+import _assign from 'lodash/assign';
+import _omitBy from 'lodash/omitBy';
+import _isUndefined from 'lodash/isUndefined';
 
 type MakeP2PFileUploadRecordData = Partial<P2PFileUploadRecord> & Pick<P2PFileUploadRecord, 'fromUserId' | 'fromUserUid' | 'fileOriginalName' | 'fileMimeType' | 'fileSize' | 'chunkSize'>;
 
@@ -16,9 +21,11 @@ export function makeServerFileUploadRecord(data: MakeServerFileUploadRecordData)
   status: FileUploadRecordStatus.BEGUN,
   type: FileUploadRecordType.SERVER,
   errorType: null,
-  chunksReceived: []
+  chunksReceived: [],
+  metadata: null
  };
- const record = Object.assign(defaults, data) as ServerFileUploadRecord;
+ // @ts-ignore
+ const record = _assign(defaults, _omitBy(data, _isUndefined)) as ServerFileUploadRecord;
  record.fileExtension = path.extname(record.fileOriginalName);
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);
  record.fileName = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.FILE_NAME_STRATEGY(record as any) as string;
@@ -35,9 +42,11 @@ export function makeP2PFileUploadRecord(data: MakeP2PFileUploadRecordData): P2PF
   fileFolder: null,
   fileExtension: null,
   errorType: null,
-  chunksReceived: []
+  chunksReceived: [],
+  metadata: null
  };
- const record = Object.assign(defaults, data) as P2PFileUploadRecord;
+ // @ts-ignore
+ const record = _assign(defaults, _omitBy(data, _isUndefined)) as P2PFileUploadRecord;
  record.fileOriginalName = sanitizeFilename(record.fileOriginalName);
  return record;
 }
@@ -65,4 +74,37 @@ export function makeFilePath(record: FileUploadRecord): string {
 
 export function makeTempFilePath(record: FileUploadRecord): string {
  return makeFilePath(record) + '.tmp';
+}
+
+/**
+ * Mutably convert FileUploadRecord from DB format
+ * todo: better handle this by ORM
+ */
+export function convertUploadRecordFromDB(record: Partial<FileUploadRecord>) {
+ record = changeKeys.camelCase(record) as FileUploadRecord;
+ if (record.chunksReceived && typeof record.chunksReceived === 'string') {
+  record.chunksReceived = JSON.parse(record.chunksReceived);
+ }
+ if (record.metadata && typeof record.metadata === 'string') {
+  record.metadata = JSON.parse(record.metadata);
+ }
+ return record;
+}
+
+/**
+ * Immutably convert FileUploadRecord to DB format
+ * todo: better handle this by ORM
+ */
+export function convertUploadRecordToDB(_record: Partial<FileUploadRecord>) {
+ let record = _cloneDeep(_record);
+ if (record.chunksReceived) {
+  // @ts-ignore
+  record.chunksReceived = JSON.stringify(record.chunksReceived);
+ }
+ if (record.metadata) {
+  // @ts-ignore
+  record.metadata = JSON.stringify(record.metadata);
+ }
+ record = changeKeys.snakeCase(record) as FileUploadRecord;
+ return record;
 }

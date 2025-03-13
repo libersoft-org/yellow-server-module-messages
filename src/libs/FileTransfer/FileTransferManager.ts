@@ -40,7 +40,8 @@ class FileTransferManager extends EventEmitter {
     fileOriginalName: data.fileOriginalName,
     fileMimeType: data.fileMimeType,
     fileSize: data.fileSize,
-    chunkSize: data.chunkSize
+    chunkSize: data.chunkSize,
+    metadata: data.metadata
    });
   } else if (data.type === FileUploadRecordType.P2P) {
    record = makeP2PFileUploadRecord({
@@ -51,13 +52,18 @@ class FileTransferManager extends EventEmitter {
     fileOriginalName: data.fileOriginalName,
     fileSize: data.fileSize,
     fileMimeType: data.fileMimeType,
-    chunkSize: data.chunkSize
+    chunkSize: data.chunkSize,
+    metadata: data.metadata
    });
   } else {
    throw new Error('Invalid file transfer record type');
   }
 
-  await this.createRecord(record);
+  try {
+   await this.createRecord(record);
+  } catch (er) {
+   Log.error('Error creating record', er);
+  }
 
   return record;
  }

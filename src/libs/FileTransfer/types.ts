@@ -35,6 +35,8 @@ export interface BaseFileUploadRecord {
  chunkSize: number;
  chunksReceived: number[];
 
+ metadata: object | null;
+
  created: Date;
  updated: Date;
 }
@@ -77,4 +79,4 @@ export enum FileUploadRole {
  RECEIVER = 'RECEIVER'
 }
 
-export type FileUploadBeginData = Pick<FileUploadRecord, 'id' | 'fromUserId' | 'fromUserUid' | 'type' | 'fileOriginalName' | 'fileMimeType' | 'fileSize' | 'fileFolder' | 'chunkSize'>;
+export type FileUploadBeginData = Pick<FileUploadRecord, 'id' | 'fromUserId' | 'fromUserUid' | 'type' | 'fileOriginalName' | 'fileMimeType' | 'fileSize' | 'fileFolder' | 'chunkSize' | 'metadata'>;

@@ -174,7 +174,7 @@ export class ApiClient extends ModuleApiBase {
   const allowedRecords: any[] = [];
   const disallowedRecords: any[] = [];
   for (let record of records) {
-   const { id, fileOriginalName, fileMimeType, fileSize, type, chunkSize, fromUserUid } = record;
+   const { id, fileOriginalName, fileMimeType, fileSize, type, chunkSize, fromUserUid, metadata } = record;
    const updatedRecord = await this.app.fileTransferManager.uploadBegin({
     id,
     fromUserId: c.userID,
@@ -183,7 +183,8 @@ export class ApiClient extends ModuleApiBase {
     fileOriginalName,
     fileMimeType,
     fileSize,
-    chunkSize
+    chunkSize,
+    metadata
    });
    // create attachment for sender
    await this.app.data.createAttachment(
