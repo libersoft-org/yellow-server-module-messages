@@ -9,6 +9,8 @@ ARG GID=1000
 # Install curl and tini
 RUN apt update && apt install -y curl tini
 
+RUN chown -R $UID:$GID /tmp
+
 # Use tini as the init system
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
