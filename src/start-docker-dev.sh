@@ -8,4 +8,7 @@ mkdir -p uploads/message-attachments/
 ~/.bun/bin/bun i --frozen-lockfile
 rm -rf ./node_modules/yellow-server-common; ln -s ../../../yellow-server-common ./node_modules/yellow-server-common
 ~/.bun/bin/bun module-messages.js --create-database
-~/.bun/bin/bun --watch module-messages.js
+while true; do
+  ~/.bun/bin/bun module-messages.js
+done
+

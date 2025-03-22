@@ -4,6 +4,10 @@ import { ModuleAppBase } from 'yellow-server-common';
 import path from 'path';
 import FileTransferManager from './FileTransfer/FileTransferManager.ts';
 
+import.meta.hot.dispose(() => {
+ console.log('DISPOSE  ');
+});
+
 interface LogTopicFilter {
  [key: string]: string;
 }
