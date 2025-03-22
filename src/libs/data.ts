@@ -137,10 +137,10 @@ class Data extends DataGeneric {
   return records;
  }
 
- async createMessage(userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, format: string, created: Date | null = null): Promise<any> {
+ async createMessage(corr: object, userID: number, uid: string, user_address: string, conversation: string, address_from: string, address_to: string, message: string, format: string, created: Date | null = null): Promise<any> {
   // TODO: after we switch to conversations as a separate table get rid of created parameter
   return await this.createMessageMutex.runExclusive(async () => {
-   Log.debug('!!!!!!!!!!!!!!!!data.createMessage: ', userID, uid, address_from, address_to, format, message);
+   Log.debug(corr, 'data.createMessage: ', userID, uid, address_from, address_to, format, message);
    const last_id = this.getLastMessageID(userID, user_address, conversation);
    let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, format, created) VALUES (?, ?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, format, created]);
    r.prev = last_id; /*?fixme to "none"?*/
@@ -204,7 +204,7 @@ class Data extends DataGeneric {
   } else base_id = base;
   /* fixme...*/
   let result = [await this.getMessage(userID, base_id)];
-  Log.debug('result: ', JSON.stringify(result, null, 2));
+  Log.debug('userListMessages result: ', JSON.stringify(result, null, 2));
   let prevMessages = [];
   if (prevCount > 0) {
    prevMessages = await this.getPrevMessages(userID, address_my, address_other, base_id, prevCount + 1);

@@ -5,6 +5,7 @@
     "change-case": "^5.4.4",
     "lodash": "^4.17.21",
     "mariadb": "*",
+    "pino-elasticsearch": "^8.1.0",
     "sanitize-filename": "^1.6.3",
     "typescript": "^5.6.3",
     "uuid": "^11.0.4",
