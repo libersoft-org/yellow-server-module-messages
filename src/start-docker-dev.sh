@@ -10,5 +10,8 @@ rm -rf ./node_modules/yellow-server-common; ln -s ../../../yellow-server-common 
 ~/.bun/bin/bun module-messages.js --create-database
 while true; do
   ~/.bun/bin/bun module-messages.js
+  echo "exit code: $?"
+  sleep 1
+  echo "restarting..."
 done
 
