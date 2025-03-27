@@ -1,21 +1,25 @@
-FROM oven/bun:latest
+FROM ubuntu:24.04
 
 ARG UID=1000
 ARG GID=1000
 
-#RUN groupadd -g $GID usergroup && \
-#    useradd -u $UID -g $GID -m user
-
-# Install curl and tini
-RUN apt update && apt install -y curl tini
-
-# Use tini as the init system
+RUN apt update && apt install -y curl tini unzip
 ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Install Node.js LTS (use setup script)
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt install -y nodejs
+
+RUN chown -R $UID:$GID /tmp
+RUN mkdir /var/log/yellow
+RUN chown $UID:$GID /var/log/yellow
 
 ARG APP_DIR=/app/app/src/
 RUN mkdir -p $APP_DIR
 RUN chown $UID:$GID $APP_DIR
 USER $UID:$GID
 WORKDIR $APP_DIR
+
+RUN curl -fsSL https://bun.sh/install | bash
 
 CMD ["./start-docker-dev.sh"]

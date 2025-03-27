@@ -308,7 +308,7 @@ export class ApiClient extends ModuleApiBase {
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
   //console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
-  const msg1_insert = await this.app.data.createMessage(c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, format, created);
+  const msg1_insert = await this.app.data.createMessage(c.corr, c.userID, uid, userFromAddress, userToAddress, userFromAddress, userToAddress, c.params.message, format, created);
   const msg1 = {
    id: Number(msg1_insert.insertId),
    uid,
@@ -319,10 +319,10 @@ export class ApiClient extends ModuleApiBase {
    format,
    created
   };
-  this.signals.notifyUser(c.userID, 'new_message', msg1);
+  this.signals.notifyUser(c.userID, 'new_message', msg1, c.corr);
   if (userToID !== userFromInfo.id) {
    // TODO: don't use "created" here, rather do SELECT on table after INSERT
-   const msg2_insert = await this.app.data.createMessage(userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, format, created);
+   const msg2_insert = await this.app.data.createMessage(c.corr, userToID, uid, userToAddress, userFromAddress, userFromAddress, userToAddress, c.params.message, format, created);
    const msg2 = {
     id: Number(msg2_insert.insertId),
     uid,
@@ -333,7 +333,7 @@ export class ApiClient extends ModuleApiBase {
     format,
     created
    };
-   this.signals.notifyUser(userToID, 'new_message', msg2);
+   this.signals.notifyUser(userToID, 'new_message', msg2, c.corr);
   }
   return { error: false, message: 'Message sent', uid };
  }
@@ -367,15 +367,25 @@ export class ApiClient extends ModuleApiBase {
   const res2 = await this.app.data.userGetMessage(c.userID, c.params.uid);
   const [username, domain] = res2.address_from.split('@');
   const userFromID = await this.core.api.getUserIDByUsernameAndDomainName(username, domain);
-  this.signals.notifyUser(userFromID, 'seen_message', {
-   uid: c.params.uid,
-   seen: res2.seen
-  });
-  this.signals.notifyUser(c.userID, 'seen_inbox_message', {
-   uid: c.params.uid,
-   address_from: res2.address_from,
-   seen: res2.seen
-  });
+  this.signals.notifyUser(
+   userFromID,
+   'seen_message',
+   {
+    uid: c.params.uid,
+    seen: res2.seen
+   },
+   c.corr
+  );
+  this.signals.notifyUser(
+   c.userID,
+   'seen_inbox_message',
+   {
+    uid: c.params.uid,
+    address_from: res2.address_from,
+    seen: res2.seen
+   },
+   c.corr
+  );
   return { error: false, message: 'Seen flag set successfully' };
  }
 
