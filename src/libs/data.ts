@@ -212,6 +212,10 @@ class Data extends DataGeneric {
   await this.db.query('UPDATE messages SET seen = CURRENT_TIMESTAMP WHERE uid = ?', [uid]);
  }
 
+ async deleteMessage(userID: number, uid: string): Promise<void> {
+  await this.db.query('DELETE FROM messages WHERE uid = ? AND id_users = ?', [uid, userID]);
+ }
+
  async userListConversations(userID: number, userAddress: string): Promise<Conversation[] | false> {
   Log.debug('userListConversations', userID, userAddress);
   const res: Conversation[] = await this.db.query<Conversation[]>(
