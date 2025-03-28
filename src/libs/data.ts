@@ -36,7 +36,7 @@ class Data extends DataGeneric {
 
  async createDB(): Promise<void> {
   try {
-   await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, format VARCHAR(16) NOT NULL DEFAULT "plaintext", seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+   await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, format VARCHAR(16) NOT NULL DEFAULT "plaintext", seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (uid, id_users))');
    await this.db.query(`
     CREATE TABLE IF NOT EXISTS attachments
     (
@@ -122,7 +122,14 @@ class Data extends DataGeneric {
    `);
   } catch (ex) {
    Log.info(ex);
-   process.exit(1);
+  }
+  try {
+   await this.db.query(`
+    ALTER TABLE messages add constraint unique_uid_id_users unique (uid, id_users);
+   `);
+  } catch (ex) {
+   Log.info(ex);
+   //process.exit(1);
   }
  }
 
@@ -196,7 +203,7 @@ class Data extends DataGeneric {
    Log.debug(corr, 'data.createMessage: ', userID, uid, address_from, address_to, format, message);
    const last_id = this.getLastMessageID(userID, user_address, conversation);
    let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, format, created) VALUES (?, ?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, format, created]);
-   r.prev = last_id; /*?fixme to "none"?*/
+   r.prev = last_id; /* note: we could set null here, client would create lazy loader and run an extra query to fill a possible hole. */
    // TODO: let's do the following after we switch to conversations as a separate table
    // TODO: to get rid of Mutex we can SELECT previous message ID as ID less than last message ID (r.id) AFTER INSERT.
    return r;

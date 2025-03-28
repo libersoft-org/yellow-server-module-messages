@@ -35,7 +35,7 @@ export class ApiClient extends ModuleApiBase {
    upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
    upload_cancel: { method: this.upload_cancel.bind(this), reqUserSession: true },
    download_chunk: { method: this.download_chunk.bind(this), reqUserSession: true },
-   upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true },
+   upload_update_status: { method: this.upload_update_status.bind(this), reqUserSession: true }
   };
   this.message_seen_mutex = new Mutex();
   this.runFileUploadsCleanup();
@@ -335,6 +335,7 @@ export class ApiClient extends ModuleApiBase {
    };
    this.signals.notifyUser(userToID, 'new_message', msg2, c.corr);
   }
+  //await new Promise(resolve => setTimeout(resolve, 15000));
   return { error: false, message: 'Message sent', uid };
  }
 
@@ -342,9 +343,9 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
 
-  Log.debug('message_delete params', c.params)
+  Log.debug('message_delete params', c.params);
   const userId = c.userID;
-  Log.debug('message_delete userId', userId)
+  Log.debug('message_delete userId', userId);
 
   await this.app.data.deleteMessage(userId, c.params.uid);
  }
