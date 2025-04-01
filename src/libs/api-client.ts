@@ -304,7 +304,7 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params.uid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
   const uid = c.params.uid;
   // TODO: don't define "created" here, rather do SELECT on table after INSERT
-  const created = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const created = new Date();
   const address_from = userFromInfo.username + '@' + userFromDomain;
   const address_to = usernameTo + '@' + domainTo;
   //console.log('message_send:', c.userID, uid, userFromAddress, userToAddress, c.params.message, format, created);
@@ -317,7 +317,7 @@ export class ApiClient extends ModuleApiBase {
    address_to,
    message: c.params.message,
    format,
-   created
+   created: created.toISOString()
   };
   this.signals.notifyUser(c.userID, 'new_message', msg1, c.corr);
   if (userToID !== userFromInfo.id) {
@@ -331,7 +331,7 @@ export class ApiClient extends ModuleApiBase {
     address_to,
     message: c.params.message,
     format,
-    created
+    created: created.toISOString()
    };
    this.signals.notifyUser(userToID, 'new_message', msg2, c.corr);
   }
