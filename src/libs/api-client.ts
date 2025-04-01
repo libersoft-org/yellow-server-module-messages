@@ -22,12 +22,13 @@ export class ApiClient extends ModuleApiBase {
  }
 
  constructor(app) {
-  super(app, ['new_message', 'seen_message', 'seen_inbox_message', 'upload_update', 'download_chunk', 'ask_for_chunk']);
+  super(app, ['new_message', 'seen_message', 'seen_inbox_message', 'message_update', 'upload_update', 'download_chunk', 'ask_for_chunk']);
   this.commands = {
    ...this.commands,
    message_send: { method: this.message_send.bind(this), reqUserSession: true },
    message_seen: { method: this.message_seen.bind(this), reqUserSession: true },
    message_delete: { method: this.message_delete.bind(this), reqUserSession: true },
+   message_reaction: { method: this.message_reaction.bind(this), reqUserSession: true },
    messages_list: { method: this.messages_list.bind(this), reqUserSession: true },
    conversations_list: { method: this.conversations_list.bind(this), reqUserSession: true },
    upload_begin: { method: this.upload_begin.bind(this), reqUserSession: true },
@@ -349,6 +350,47 @@ export class ApiClient extends ModuleApiBase {
   await this.app.data.deleteMessage(userId, c.params.uid);
  }
 
+ async message_reaction(c) {
+  if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
+  if (!c.params.messageUid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
+  if (!c.params.operation) return { error: 'OPERATION_MISSING', message: 'Operation is missing' };
+  if (!c.params.reaction) return { error: 'REACTION_OBJECT_MISSING', message: 'Reaction object is missing' };
+  if (!c.params.reaction.emoji_codepoints_rgi) return { error: 'REACTION_NOT_SPECIFIED', message: 'You must define emoji_codepoints_rgi in the reaction object' };
+
+  const { messageUid, operation, reaction } = c.params;
+
+  const userId = c.userID;
+  const userFromInfo = await this.core.api.userGetUserInfo(userId);
+  const userFromDomain = await this.core.api.getDomainNameByID(userFromInfo.id_domains);
+  const userFromAddress = userFromInfo.username + '@' + userFromDomain;
+
+  const dispatchNotification = async () => {
+   const recipients = await this.app.repos.messages.findMessageRecipients(messageUid);
+   const currentReactions = await this.app.repos.messagesReactions.getSingleMessageReactions(messageUid);
+   recipients.forEach(recipient => {
+    this.signals.notifyUser(recipient.id_users, 'message_update', {
+     type: 'reaction',
+     message: {
+      uid: messageUid,
+      reactions: currentReactions
+     }
+    });
+   });
+  };
+
+  if (operation === 'set') {
+   const res = await this.app.services.messagesReactions.setUserMessageReaction(userId, userFromAddress, messageUid, reaction);
+   Log.debug('op change res', operation, res);
+   dispatchNotification();
+  } else if (operation === 'unset') {
+   const res = await this.app.services.messagesReactions.unsetUserMessageReaction(userId, userFromAddress, messageUid, reaction);
+   Log.debug('op change res', operation, res);
+   dispatchNotification();
+  }
+
+  return { error: false, message: 'Reaction was changed' };
+ }
+
  async message_seen(c) {
   if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
   if (!c.params.uid) return { error: 'MESSAGE_UID_MISSING', message: 'Message UID is missing' };
@@ -393,6 +435,7 @@ export class ApiClient extends ModuleApiBase {
   if (!c.params) return { error: 'PARAMETERS_MISSING', message: 'Parameters are missing' };
   if (!c.params.address) return { error: 'RECIPIENT_ADDRESS_MISSING', message: 'Recipient address is missing' };
   const messages = await this.app.data.userListMessages(c.userID, c.userAddress, c.params.address, c.params?.base, c.params?.prev, c.params?.next);
+  await this.app.data.fetchAdditionalDataForMessages(messages);
   return { error: false, data: { messages } };
  }
 

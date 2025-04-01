@@ -3,6 +3,9 @@ import { ApiClient } from './api-client';
 import { ModuleAppBase } from 'yellow-server-common';
 import path from 'path';
 import FileTransferManager from './FileTransfer/FileTransferManager.ts';
+import Repositories from '@/libs/repositories/_repositories.ts';
+import database from '@/libs/db.ts';
+import Services from '@/libs/services/_services.ts';
 
 import.meta?.hot?.dispose(() => {
  console.log('DISPOSE  ');
@@ -53,8 +56,15 @@ interface Settings {
 class App extends ModuleAppBase {
  defaultSettings: Settings;
  api: ApiClient;
+
+ // @ts-ignore (defined in this.init)
  data: Data;
- public fileTransferManager: FileTransferManager;
+ // @ts-ignore (defined in this.init)
+ fileTransferManager: FileTransferManager;
+ // @ts-ignore (defined in this.init)
+ repos: Repositories;
+ // @ts-ignore (defined in this.init)
+ services: Services;
 
  constructor() {
   const info = {
@@ -104,7 +114,10 @@ class App extends ModuleAppBase {
  }
 
  async init() {
-  this.data = new Data(this.info.settings.database);
+  this.repos = new Repositories(database);
+  this.data = new Data(this.info.settings.database, this.repos);
+  this.services = new Services(this.repos);
+
   this.fileTransferManager = new FileTransferManager({
    createRecordOnServer: this.data.createFileUpload.bind(this.data),
    findRecordOnServer: this.data.getFileUpload.bind(this.data),
