@@ -40,6 +40,7 @@ class Data extends DataGeneric {
  }
 
  async createDB(): Promise<void> {
+  /*
   try {
    await this.db.query('CREATE TABLE IF NOT EXISTS messages (id INT PRIMARY KEY AUTO_INCREMENT, id_users INT, uid VARCHAR(255) NOT NULL, address_from VARCHAR(255) NOT NULL, address_to VARCHAR(255) NOT NULL, message TEXT NOT NULL, format VARCHAR(16) NOT NULL DEFAULT "plaintext", seen TIMESTAMP NULL DEFAULT NULL, created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (uid, id_users))');
    await this.db.query(`
@@ -135,7 +136,7 @@ class Data extends DataGeneric {
   } catch (ex) {
    Log.info(ex);
    //process.exit(1);
-  }
+  }*/
  }
 
  async createFileUpload(fileUploadRecord: FileUploadRecord) {
