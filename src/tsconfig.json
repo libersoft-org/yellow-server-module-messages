@@ -1,6 +1,12 @@
 {
  "compilerOptions": {
+  "baseUrl": "./",
+  "paths": {
+   "@/*": ["./*"]
+  },
+
   "esModuleInterop": true,
+  "resolveJsonModule": true,
 
   // Enable latest features
   "lib": ["ESNext", "DOM"],

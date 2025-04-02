@@ -1,8 +1,10 @@
-import { newLogger, DataGeneric } from 'yellow-server-common';
+import { DataGeneric, newLogger } from 'yellow-server-common';
 import { Mutex } from 'async-mutex';
 import { AttachmentRecord, FileUploadRecord, FileUploadRecordStatus } from './FileTransfer/types.ts';
 import * as changeKeys from 'change-case/keys';
 import { convertUploadRecordFromDB, convertUploadRecordToDB } from './FileTransfer/utils.ts';
+import { MessageReaction } from '@/libs/repositories/types.ts';
+import Repositories from '@/libs/repositories/_repositories.ts';
 
 let Log = newLogger('data');
 
@@ -17,6 +19,7 @@ interface Message {
  created: Date;
  prev: number | string | undefined;
  next: number | string | undefined;
+ reactions: MessageReaction[];
 }
 
 interface Conversation {
@@ -28,10 +31,12 @@ interface Conversation {
 
 class Data extends DataGeneric {
  createMessageMutex: Mutex;
+ repos: Repositories;
 
- constructor(settings: any) {
+ constructor(settings: any, repos: Repositories) {
   super(settings);
   this.createMessageMutex = new Mutex();
+  this.repos = repos;
  }
 
  async createDB(): Promise<void> {
@@ -250,6 +255,15 @@ class Data extends DataGeneric {
    [userAddress, userAddress, userID, userAddress, userID, userID]
   );
   return res;
+ }
+
+ async fetchAdditionalDataForMessages(messages: Message[]) {
+  const messageUids = messages.map(message => message.uid);
+  const reactions = await this.repos.messagesReactions.getMessagesReactions(messageUids);
+  return messages.map(message => {
+   message.reactions = reactions.filter(reaction => reaction.message_uid === message.uid);
+   return message;
+  });
  }
 
  async userListMessages(userID: number, address_my: string, address_other: string, base: number | 'unseen' | string = 0, prevCount = 0, nextCount = 0): Promise<Message[]> {

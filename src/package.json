@@ -1,25 +1,30 @@
 {
-  "name": "yellow-module-messages",
-  "dependencies": {
-    "async-mutex": "^0.5.0",
-    "change-case": "^5.4.4",
-    "lodash": "^4.17.21",
-    "mariadb": "*",
-    "pino-elasticsearch": "^8.1.0",
-    "sanitize-filename": "^1.6.3",
-    "typescript": "^5.6.3",
-    "uuid": "^11.0.4",
-    "vite-plugin-checker": "^0.8.0",
-    "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#51b91bf08b8321b0136571a190c0976aa60cd50a"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.1.13",
-    "@types/jest": "^29.5.14",
-    "@types/lodash": "^4.17.15",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  }
+ "name": "yellow-module-messages",
+ "scripts": {
+  "typecheck": "tsc --noEmit",
+  "knex": "knex",
+  "knex:migrate": "knex migrate:latest"
+ },
+ "dependencies": {
+  "async-mutex": "^0.5.0",
+  "change-case": "^5.4.4",
+  "knex": "^3.1.0",
+  "lodash": "^4.17.21",
+  "mariadb": "*",
+  "pino-elasticsearch": "^8.1.0",
+  "sanitize-filename": "^1.6.3",
+  "typescript": "^5.6.3",
+  "uuid": "^11.0.4",
+  "vite-plugin-checker": "^0.8.0",
+  "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#ac7c05ce2233681df5b9a20dade828b1b6487ee9"
+ },
+ "devDependencies": {
+  "@types/bun": "^1.1.13",
+  "@types/jest": "^29.5.14",
+  "@types/lodash": "^4.17.15",
+  "@types/node": "^22.13.14",
+  "jest": "^29.7.0",
+  "ts-jest": "^29.2.5",
+  "ts-node": "^10.9.2"
+ }
 }
