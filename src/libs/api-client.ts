@@ -318,7 +318,7 @@ export class ApiClient extends ModuleApiBase {
    address_to,
    message: c.params.message,
    format,
-   created: created.toISOString()
+   created: created
   };
   this.signals.notifyUser(c.userID, 'new_message', msg1, c.corr);
   if (userToID !== userFromInfo.id) {
@@ -332,7 +332,7 @@ export class ApiClient extends ModuleApiBase {
     address_to,
     message: c.params.message,
     format,
-    created: created.toISOString()
+    created: created
    };
    this.signals.notifyUser(userToID, 'new_message', msg2, c.corr);
   }
