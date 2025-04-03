@@ -5,5 +5,5 @@ bun.lockb
 bun.lockb.txt
 .secret_git
 .idea
-uploads/*
+uploads
 .aider*

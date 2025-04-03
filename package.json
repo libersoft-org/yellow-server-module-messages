@@ -16,7 +16,8 @@
   "typescript": "^5.6.3",
   "uuid": "^11.0.4",
   "vite-plugin-checker": "^0.8.0",
-  "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#ac7c05ce2233681df5b9a20dade828b1b6487ee9"
+  //"yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#ac7c05ce2233681df5b9a20dade828b1b6487ee9"
+  "yellow-server-common": "file:../yellow-server-common"
  },
  "devDependencies": {
   "@types/bun": "^1.1.13",

@@ -67,12 +67,14 @@ class App extends ModuleAppBase {
  services: Services;
 
  constructor() {
+  const appPath = path.resolve(__dirname, '../../');
   const info = {
-   appPath: path.dirname(import.meta.dir) + '/',
+   appPath,
    appName: 'Yellow Server Module Messages',
    appVersion: '0.01'
   };
-  super(info, path.dirname(__dirname));
+  console.log(info);
+  super(info, appPath);
   this.defaultSettings = {
    web: {
     http_port: 25001,

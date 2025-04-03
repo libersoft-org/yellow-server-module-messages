@@ -1,5 +1,5 @@
 import type { Knex } from 'knex';
-import 'ts-node/register'; // Ensure TypeScript support
+// import 'ts-node/register'; // Ensure TypeScript support
 import settings from './settings.json' with { type: 'json' };
 
 // more info: https://knexjs.org/guide/#configuration-options
