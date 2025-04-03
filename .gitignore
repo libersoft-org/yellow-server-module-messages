@@ -1,10 +1,9 @@
-src/node_modules/
-src/settings.json
+node_modules/
+settings.json
 **/*.log
-src/bun.lockb
-src/bun.lockb.txt
+bun.lockb
+bun.lockb.txt
 .secret_git
 .idea
 uploads/*
-src/uploads/*
 .aider*

@@ -1,5 +1,5 @@
 import knex from 'knex';
-import knexFile from '../knexfile.ts';
+import knexFile from '../../knexfile.ts';
 
 const env = process.env.NODE_ENV || 'development';
 const pickedConfig = knexFile[env];
