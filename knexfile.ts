@@ -1,6 +1,26 @@
 import type { Knex } from 'knex';
 // import 'ts-node/register'; // Ensure TypeScript support
-import settings from './settings.json' with { type: 'json' };
+const settingsPath = process.env.VITE_YELLOW_SETTINGS_PATH || './settings.json';
+
+
+/* todo: adapted from module-app-base.ts */
+async function loadSettings() {
+ const file = Bun.file(settingsPath);
+ if (await file.exists()) {
+  try {
+   return await file.json();
+  } catch {
+   console.log('Settings file "' + this.info.settingsFile + '" has an invalid format.');
+   process.exit(1);
+  }
+ } else {
+  console.log('Settings file "' + this.info.settingsFile + '" not found. Please run this application again using: "./start.sh --create-settings"');
+  process.exit(1);
+ }
+}
+
+const settings = await loadSettings();
+
 
 // more info: https://knexjs.org/guide/#configuration-options
 const config: { [key: string]: Knex.Config } = {
