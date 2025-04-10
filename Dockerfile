@@ -14,7 +14,7 @@ RUN chown -R $UID:$GID /tmp
 RUN mkdir /var/log/yellow
 RUN chown $UID:$GID /var/log/yellow
 
-ARG APP_DIR=/app/app/src/
+ARG APP_DIR=/app/app/
 RUN mkdir -p $APP_DIR
 RUN chown $UID:$GID $APP_DIR
 RUN mkdir /.bun
@@ -24,4 +24,4 @@ WORKDIR $APP_DIR
 
 RUN curl -fsSL https://bun.sh/install | bash
 
-CMD ["../start-docker-dev.sh"]
+CMD ["./start-docker-dev.sh"]
