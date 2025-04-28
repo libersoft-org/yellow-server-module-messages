@@ -3,7 +3,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "knex": "knex",
-    "knex:migrate": "knex migrate:latest --migrations-directory src/migrations/"
+    "knex:migrate": "knex migrate:latest"
   },
   "dependencies": {
     "async-mutex": "^0.5.0",

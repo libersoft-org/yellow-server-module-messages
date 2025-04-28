@@ -70,6 +70,17 @@ class FileTransferManager extends EventEmitter {
 
  async processChunk(chunk: FileUploadChunk) {
   let record = await this.getRecord(chunk.uploadId);
+
+  if (record.status === FileUploadRecordStatus.FINISHED) {
+   throw new Error("File upload already finished - it can't receive more chunks.");
+  }
+  if (record.status === FileUploadRecordStatus.ERROR) {
+   throw new Error("File upload in error state - it can't receive more chunks.");
+  }
+  if (record.status === FileUploadRecordStatus.CANCELED) {
+   throw new Error("File upload canceled - it can't receive more chunks.");
+  }
+
   if (record.type === FileUploadRecordType.SERVER) {
    return await this.processChunkServer(chunk, record);
   } else if (record.type === FileUploadRecordType.P2P) {
@@ -90,14 +101,18 @@ class FileTransferManager extends EventEmitter {
     // todo: checksum
     record.status = FileUploadRecordStatus.FINISHED;
     record.chunksReceived = [];
+
+    await this.patchRecord(record.id, {
+     status: record.status
+    });
+
     // move temp file to final location
     let dst = makeFilePath(record);
     await fs.rename(makeTempFilePath(record), dst);
    }
 
    await this.patchRecord(record.id, {
-    chunksReceived: record.chunksReceived,
-    status: record.status
+    chunksReceived: record.chunksReceived
    });
 
    return { record, chunk };
