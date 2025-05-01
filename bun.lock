@@ -14,7 +14,7 @@
         "typescript": "^5.6.3",
         "uuid": "^11.0.4",
         "vite-plugin-checker": "^0.8.0",
-        "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#8a27104d7c68447be2c13e829a2b8bf4501d830a",
+        "yellow-server-common": "git+https://github.com/libersoft-org/yellow-server-common#d751ed4f124c2948f78c1fcd7073525225abc5cb",
       },
       "devDependencies": {
         "@types/bun": "^1.1.13",
@@ -1000,7 +1000,7 @@
 
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
-    "yellow-server-common": ["yellow-server-common@github:libersoft-org/yellow-server-common#8a27104", { "dependencies": { "@elastic/ecs-pino-format": "^1.5.0", "async-mutex": "^0.5.0", "i": "^0.3.7", "mariadb": "2", "mysql": "^2.18.1", "pino": "8", "pino-elasticsearch": "^8.1.0", "pino-opentelemetry-transport": "^1.0.1", "pino-pretty": "^13.0.0", "sql-client": "^3.0.0" } }, "libersoft-org-yellow-server-common-8a27104"],
+    "yellow-server-common": ["yellow-server-common@github:libersoft-org/yellow-server-common#d751ed4", { "dependencies": { "@elastic/ecs-pino-format": "^1.5.0", "async-mutex": "^0.5.0", "i": "^0.3.7", "mariadb": "2", "mysql": "^2.18.1", "pino": "8", "pino-elasticsearch": "^8.1.0", "pino-opentelemetry-transport": "^1.0.1", "pino-pretty": "^13.0.0", "sql-client": "^3.0.0" } }, "libersoft-org-yellow-server-common-d751ed4"],
 
     "yn": ["yn@3.1.1", "", {}, "sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q=="],
 
