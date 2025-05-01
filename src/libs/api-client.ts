@@ -79,7 +79,7 @@ export class ApiClient extends ModuleApiBase {
   while (true) {
    // wait for next iteration
    await new Promise(resolve => setTimeout(resolve, FILE_TRANSFER_SETTINGS.CLEANUP_INTERVAL_MS));
-   Log.debug('Running file uploads cleanup');
+   Log.trace('Running file uploads cleanup');
    // first get appropriate records from db
    const dbRecords = await this.app.data.getFileUploadsForCheck();
    // now combine it with in-memory records from fileTransferManager
@@ -89,7 +89,7 @@ export class ApiClient extends ModuleApiBase {
     if (!acc.some(r => r.id === record.id)) acc.push(record);
     return acc;
    }, []);
-   Log.debug('Checking and validating file uploads', dbRecords.length);
+   Log.trace('Checking and validating file uploads', dbRecords.length);
    await this.app.fileTransferManager.checkAndValidateFileUploads(dbRecords, async (updatedRecord: FileUploadRecord) => {
     await this.send_upload_update_notification({ record: updatedRecord });
    });
