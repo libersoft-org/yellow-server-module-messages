@@ -444,7 +444,7 @@ class Data extends DataGeneric {
   const res = await this.db.query('SELECT uid, COUNT(*) as count FROM messages GROUP BY uid HAVING count > 2');
   if (res.length > 0) {
    Log.warning('Duplicated messages found: ', res);
-   return 'Proposed cleanup query: ', 'DELETE FROM messages WHERE uid IN (' + res.map((r: any) => '"' + r.uid + '"').join(',') + ')';
+   return 'Proposed cleanup query: DELETE FROM messages WHERE uid IN (' + res.map((r: any) => '"' + r.uid + '"').join(',') + ')';
   }
   return null;
  }
