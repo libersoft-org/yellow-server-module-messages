@@ -6,12 +6,16 @@ mkdir -p uploads/message-attachments/
 rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
 
 if [ "$CI" = "true" ]; then
+ echo dev_db_init...
   ./dev_db_init.py `hostname` |  mariadb --protocol=tcp --host=localhost --user=root --password=password --force
 fi
 
+echo migrate...
 ~/.bun/bin/bun run knex:migrate || exit 1
 
+echo "CI: $CI"
 if [ "$CI" = "true" ]; then
+  echo populate...
   ./dev_db_populate.py `hostname` |  mariadb --protocol=tcp --host=localhost --user=root --password=password --force
 fi
 
