@@ -3,7 +3,10 @@
 mkdir -p uploads/message-attachments/
 
 ~/.bun/bin/bun i --frozen-lockfile  || exit 1
-rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
+
+if [ -n "$CI" ]; then
+ rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
+fi
 
 echo "CI: $CI"
 echo "CI raw: |$CI|"
