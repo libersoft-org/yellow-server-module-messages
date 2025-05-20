@@ -4,24 +4,19 @@ mkdir -p uploads/message-attachments/
 
 ~/.bun/bin/bun i --frozen-lockfile  || exit 1
 
-if [ -n "$CI" ]; then
+echo "CI: $CI"
+
+if [ -z "$CI" ]; then
  rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
 fi
 
-echo "CI: $CI"
-echo "CI raw: |$CI|"
 if [ -n "$CI" ]; then
  echo dev_db_init...
-  ./dev_db_init.py `hostname` |  mariadb --protocol=tcp --host=localhost --user=root --password=password --force
+  ./dev_db_init.py `hostname` |  mariadb --protocol=tcp --host=$MARIA_HOST --user=root --password=password --force
 fi
 
 echo migrate...
 ~/.bun/bin/bun run knex:migrate || exit 1
-
-if [ -n "$CI" ]; then
-  echo populate...
-  ./dev_db_populate.py `hostname` |  mariadb --protocol=tcp --host=localhost --user=root --password=password --force
-fi
 
 if [ -n "$CI" ]; then
   WATCH=""
