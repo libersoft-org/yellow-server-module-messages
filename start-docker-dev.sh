@@ -12,10 +12,10 @@ if [ "$HOLLOW" = "true" ]; then
  rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
 fi
 
-if [ -n "$CI" ]; then
- echo dev_db_init...
-  ./dev_db_init.py `hostname` |  mariadb --protocol=tcp --host=$MARIA_HOST --user=root --password=password --force
-fi
+#if [ -n "$CI" ]; then
+echo dev_db_init...
+./dev_db_init.py `hostname` |  mariadb --protocol=tcp --host=$MARIA_HOST --user=root --password=password --force
+#fi
 
 echo migrate...
 ~/.bun/bin/bun run knex:migrate || exit 1
