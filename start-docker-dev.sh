@@ -5,8 +5,10 @@ mkdir -p uploads/message-attachments/
 ~/.bun/bin/bun i --frozen-lockfile  || exit 1
 
 echo "CI: $CI"
+echo "HOLLOW: $HOLLOW"
 
-if [ -z "$CI" ]; then
+if [ "$HOLLOW" = "true" ]; then
+ echo "link yellow-server-common for development"
  rm -rf ./node_modules/yellow-server-common; ln -s ../../yellow-server-common ./node_modules/yellow-server-common
 fi
 
