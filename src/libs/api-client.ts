@@ -438,6 +438,14 @@ export class ApiClient extends ModuleApiBase {
   Log.debug('message_delete userId', userId);
 
   await this.app.data.deleteMessage(userId, c.params.uid);
+
+  // send update to message owner's other devices
+  this.signals.notifyUser(userId, 'message_update', {
+   type: 'delete',
+   message: {
+    uid: c.params.uid
+   }
+  });
  }
 
  async message_reaction(c) {
