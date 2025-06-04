@@ -253,9 +253,9 @@ class FileTransferManager extends EventEmitter {
     // check record.upload time for timeout
     const now = Date.now();
     const diff = now - record.updated.getTime();
-    Log.info('checking id', record.id);
-    Log.info('checking time now', new Date().toTimeString());
-    Log.info('checking time record', record.updated.toTimeString());
+    Log.debug('checking id', record.id);
+    Log.debug('checking time now', new Date().toTimeString());
+    Log.debug('checking time record', record.updated.toTimeString());
     let timeout = null;
     if (record.type === FileUploadRecordType.SERVER) {
      if (record.status === FileUploadRecordStatus.PAUSED) {
