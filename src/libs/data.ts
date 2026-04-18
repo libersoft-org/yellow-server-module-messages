@@ -5,9 +5,7 @@ import * as changeKeys from 'change-case/keys';
 import { convertUploadRecordFromDB, convertUploadRecordToDB } from './FileTransfer/utils.ts';
 import { MessageReaction } from '@/libs/repositories/types.ts';
 import Repositories from '@/libs/repositories/_repositories.ts';
-
 let Log = newLogger('data');
-
 interface Message {
  id: number;
  id_users: number;
@@ -21,7 +19,6 @@ interface Message {
  next: number | string | undefined;
  reactions: MessageReaction[];
 }
-
 interface Conversation {
  address: string;
  last_message_text: string;
@@ -168,38 +165,16 @@ class Data extends DataGeneric {
   const keys = Object.keys(data);
   const values = Object.values(data);
   const set = keys.map((key, i) => `${key} = ?`).join(', ');
-  return await this.db.query(
-   `UPDATE file_uploads
-                              SET ${set}
-                              WHERE id = ?`,
-   [...values, id]
-  );
+  return await this.db.query(`UPDATE file_uploads SET ${set} WHERE id = ?`, [...values, id]);
  }
 
  async createAttachment(attachmentRecord: AttachmentRecord) {
-  return await this.db.query(
-   `
-    INSERT INTO attachments (id, user_id, file_transfer_id, file_path)
-    VALUES (?, ?, ?, ?)
-   `,
-   [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]
-  );
+  return await this.db.query(`INSERT INTO attachments (id, user_id, file_transfer_id, file_path) VALUES (?, ?, ?, ?)`, [attachmentRecord.id, attachmentRecord.userId, attachmentRecord.fileTransferId, attachmentRecord.filePath]);
  }
 
  async getAttachmentsByFileTransferId(fileTransferId: string) {
-  let records = (await this.db.query(
-   `
-    SELECT *
-    FROM attachments
-    WHERE file_transfer_id = ?
-   `,
-   [fileTransferId]
-  )) as AttachmentRecord[];
-
-  if (records) {
-   records = records.map(record => changeKeys.camelCase(record) as AttachmentRecord);
-  }
-
+  let records = (await this.db.query(`SELECT * FROM attachments WHERE file_transfer_id = ?`, [fileTransferId])) as AttachmentRecord[];
+  if (records) records = records.map(record => changeKeys.camelCase(record) as AttachmentRecord);
   return records;
  }
 
@@ -207,7 +182,7 @@ class Data extends DataGeneric {
   // TODO: after we switch to conversations as a separate table get rid of created parameter
   return await this.createMessageMutex.runExclusive(async () => {
    Log.debug(corr, 'data.createMessage: ', userID, uid, address_from, address_to, format, message);
-   const last_id = this.getLastMessageID(userID, user_address, conversation);
+   const last_id = await this.getLastMessageID(userID, user_address, conversation);
    let r = await this.db.query('INSERT INTO messages (id_users, uid, address_from, address_to, message, format, created) VALUES (?, ?, ?, ?, ?, ?, ?)', [userID, uid, address_from, address_to, message, format, created]);
    r.prev = last_id; /* note: we could set null here, client would create lazy loader and run an extra query to fill a possible hole. */
    // TODO: let's do the following after we switch to conversations as a separate table
@@ -364,14 +339,7 @@ class Data extends DataGeneric {
   Log.debug('getNextMessages', userID, address_my, address_other, base, count);
   const res4: Message[] = await this.db.query<Message>(
    `
-    SELECT id,
-           uid,
-           address_from,
-           address_to,
-           message,
-           format,
-           seen,
-           created
+    SELECT id, uid, address_from, address_to, message, format, seen, created
     FROM messages
     WHERE id_users = ?
       AND (
@@ -389,13 +357,7 @@ class Data extends DataGeneric {
 
  private async getMessage(userID: number, id: number) {
   Log.debug('getMessage', userID, id);
-  const res: Message = await this.db.query<Message>(
-   `SELECT *
-                                                     FROM messages
-                                                     WHERE id_users = ?
-                                                       AND id = ?`,
-   [userID, id]
-  );
+  const res: Message = await this.db.query<Message>(`SELECT * FROM messages WHERE id_users = ? AND id = ?`, [userID, id]);
   Log.debug('getMessage', JSON.stringify(res, null, 2));
   return res[0];
  }
@@ -425,8 +387,8 @@ class Data extends DataGeneric {
     SELECT id
     FROM messages
     WHERE id_users = ?
-      AND (address_from = ? AND address_to = ?)
-      AND seen IS NULL
+     AND (address_from = ? AND address_to = ?)
+     AND seen IS NULL
     ORDER BY id ASC LIMIT 1
    `,
    [userID, address_other, address_my]

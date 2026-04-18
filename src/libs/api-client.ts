@@ -5,9 +5,7 @@ import { makeAttachmentRecord, pickFileUploadRecordFields } from './FileTransfer
 import { DownloadChunkP2PNotFoundError } from './FileTransfer/errors';
 import { UPLOAD_RECORD_PICKED_FIELDS_FOR_FRONTEND } from './FileTransfer/constants.ts';
 import { FILE_TRANSFER_SETTINGS } from './FileTransfer/settings.ts';
-
 let Log = newLogger('api-client');
-
 enum MessageFormat {
  plaintext = 'plaintext',
  html = 'html'
@@ -297,7 +295,7 @@ export class ApiClient extends ModuleApiBase {
   };
 
   if (newStatus === FileUploadRecordStatus.CANCELED) {
-   if (record.status !== FileUploadRecordStatus.UPLOADING || record.status !== FileUploadRecordStatus.BEGUN || record.status !== FileUploadRecordStatus.PAUSED) {
+   if (record.status !== FileUploadRecordStatus.UPLOADING && record.status !== FileUploadRecordStatus.BEGUN && record.status !== FileUploadRecordStatus.PAUSED) {
     return {
      error: 'INVALID_STATUS_CHANGE',
      message: 'Invalid status change to CANCELED from ' + record.status
