@@ -6,9 +6,7 @@ import { newLogger } from 'yellow-server-common';
 import { DownloadChunkP2PNotFoundError } from './errors.ts';
 import { FILE_TRANSFER_SETTINGS } from './settings.ts';
 import _cloneDeep from 'lodash/cloneDeep';
-
 let Log = newLogger('FileTransferManager');
-
 interface FileTransferManagerSettings {
  createRecordOnServer: FileTransferManager['_createRecordOnServer'];
  findRecordOnServer: FileTransferManager['_findRecordOnServer'];
@@ -55,70 +53,69 @@ class FileTransferManager extends EventEmitter {
     chunkSize: data.chunkSize,
     metadata: data.metadata
    });
-  } else {
-   throw new Error('Invalid file transfer record type');
-  }
+  } else throw new Error('Invalid file transfer record type');
 
   try {
    await this.createRecord(record);
   } catch (er) {
    Log.error('Error creating record', er);
   }
-
   return record;
  }
 
  async processChunk(chunk: FileUploadChunk) {
   let record = await this.getRecord(chunk.uploadId);
-
-  if (record.status === FileUploadRecordStatus.FINISHED) {
-   throw new Error("File upload already finished - it can't receive more chunks.");
-  }
-  if (record.status === FileUploadRecordStatus.ERROR) {
-   throw new Error("File upload in error state - it can't receive more chunks.");
-  }
-  if (record.status === FileUploadRecordStatus.CANCELED) {
-   throw new Error("File upload canceled - it can't receive more chunks.");
-  }
-
-  if (record.type === FileUploadRecordType.SERVER) {
-   return await this.processChunkServer(chunk, record);
-  } else if (record.type === FileUploadRecordType.P2P) {
-   return await this.processChunkP2P(chunk, record);
-  } else {
-   throw new Error('Invalid record type');
-  }
+  if (record.status === FileUploadRecordStatus.FINISHED) throw new Error("File upload already finished - it can't receive more chunks.");
+  if (record.status === FileUploadRecordStatus.ERROR) throw new Error("File upload in error state - it can't receive more chunks.");
+  if (record.status === FileUploadRecordStatus.CANCELED) throw new Error("File upload canceled - it can't receive more chunks.");
+  if (record.type === FileUploadRecordType.SERVER) return await this.processChunkServer(chunk, record);
+  else if (record.type === FileUploadRecordType.P2P) return await this.processChunkP2P(chunk, record);
+  else throw new Error('Invalid record type');
  }
 
  async processChunkServer(chunk: FileUploadChunk, record: FileUploadRecord) {
+  const tempPath = makeTempFilePath(record);
   try {
    const buffer = Buffer.from(chunk.data, 'base64');
-   await fs.appendFile(makeTempFilePath(record), buffer);
-   record.chunksReceived.push(chunk.chunkId);
+   await fs.appendFile(tempPath, buffer);
 
-   // check if finished
-   if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) {
+   const newChunksReceived = [...record.chunksReceived, chunk.chunkId];
+   const isLast = newChunksReceived.length === Math.ceil(record.fileSize / record.chunkSize);
+
+   if (isLast) {
     // todo: checksum
+    const dst = makeFilePath(record);
+    await fs.rename(tempPath, dst);
     record.status = FileUploadRecordStatus.FINISHED;
     record.chunksReceived = [];
-
     await this.patchRecord(record.id, {
-     status: record.status
+     status: record.status,
+     chunksReceived: record.chunksReceived
     });
-
-    // move temp file to final location
-    let dst = makeFilePath(record);
-    await fs.rename(makeTempFilePath(record), dst);
+   } else {
+    record.chunksReceived = newChunksReceived;
+    await this.patchRecord(record.id, {
+     chunksReceived: record.chunksReceived
+    });
    }
-
-   await this.patchRecord(record.id, {
-    chunksReceived: record.chunksReceived
-   });
 
    return { record, chunk };
   } catch (error) {
-   // todo: handle error
-   console.error('Error adding chunk', error);
+   Log.error('processChunkServer failed', { uploadId: record.id, chunkId: chunk.chunkId, error });
+   try {
+    await fs.unlink(tempPath);
+   } catch (unlinkErr) {
+    // temp file might not exist or be inaccessible — ignore
+   }
+   try {
+    await this.patchRecord(record.id, {
+     status: FileUploadRecordStatus.ERROR,
+     errorType: FileUploadRecordErrorType.CHUNK_WRITE_FAILED
+    });
+   } catch (patchErr) {
+    Log.error('failed to mark record as ERROR', patchErr);
+   }
+   throw error;
   }
  }
 

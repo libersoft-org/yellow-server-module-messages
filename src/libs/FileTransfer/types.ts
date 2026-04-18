@@ -13,7 +13,8 @@ export enum FileUploadRecordStatus {
 }
 
 export enum FileUploadRecordErrorType {
- TIMEOUT_BY_SERVER = 'TIMEOUT_BY_SERVER'
+ TIMEOUT_BY_SERVER = 'TIMEOUT_BY_SERVER',
+ CHUNK_WRITE_FAILED = 'CHUNK_WRITE_FAILED'
 }
 
 export interface BaseFileUploadRecord {
