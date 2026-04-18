@@ -26,6 +26,9 @@ interface Conversation {
  unread_count: number;
 }
 
+/** Whitelist of columns that may be updated via patchFileUpload. Prevents SQL injection via attacker-controlled keys. */
+const FILE_UPLOADS_PATCHABLE_COLUMNS = new Set(['status', 'error_type', 'chunks_received', 'metadata', 'file_name', 'file_folder', 'file_extension']);
+
 class Data extends DataGeneric {
  createMessageMutex: Mutex;
  repos: Repositories;
@@ -162,9 +165,14 @@ class Data extends DataGeneric {
 
  async patchFileUpload(id: string, data: Partial<FileUploadRecord>) {
   data = convertUploadRecordToDB(data);
-  const keys = Object.keys(data);
-  const values = Object.values(data);
-  const set = keys.map((key, i) => `${key} = ?`).join(', ');
+  const safe: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+   if (FILE_UPLOADS_PATCHABLE_COLUMNS.has(k)) safe[k] = v;
+  }
+  const keys = Object.keys(safe);
+  if (keys.length === 0) return;
+  const values = Object.values(safe);
+  const set = keys.map(k => `\`${k}\` = ?`).join(', ');
   return await this.db.query(`UPDATE file_uploads SET ${set} WHERE id = ?`, [...values, id]);
  }
 
