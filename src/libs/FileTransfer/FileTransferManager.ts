@@ -108,6 +108,12 @@ class FileTransferManager extends EventEmitter {
     // temp file might not exist or be inaccessible — ignore
    }
    try {
+    const dst = makeFilePath(record);
+    await fs.unlink(dst);
+   } catch (unlinkErr) {
+    // final file might not exist (rename didn't happen) — ignore
+   }
+   try {
     await this.patchRecord(record.id, {
      status: FileUploadRecordStatus.ERROR,
      errorType: FileUploadRecordErrorType.CHUNK_WRITE_FAILED

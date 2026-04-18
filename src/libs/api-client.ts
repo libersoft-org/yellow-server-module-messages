@@ -158,16 +158,16 @@ export class ApiClient extends ModuleApiBase {
 
  async upload_chunk(c) {
   const { chunk } = c.params;
-  let process;
+  let processResult;
   try {
-   process = await this.app.fileTransferManager.processChunk(chunk);
+   processResult = await this.app.fileTransferManager.processChunk(chunk);
   } catch (err) {
    Log.error('upload_chunk failed', err);
    const record = await this.app.fileTransferManager.getRecord(chunk.uploadId).catch(() => null);
    if (record) await this.send_upload_update_notification({ record });
    return { error: 'CHUNK_PROCESSING_FAILED', message: 'Failed to process chunk' };
   }
-  let record = process.record;
+  let record = processResult.record;
   if (record.status === FileUploadRecordStatus.BEGUN) {
    record = await this.app.fileTransferManager.patchRecord(record.id, {
     status: FileUploadRecordStatus.UPLOADING
