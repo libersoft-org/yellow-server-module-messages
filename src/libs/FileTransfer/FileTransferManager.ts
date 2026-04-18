@@ -130,86 +130,53 @@ class FileTransferManager extends EventEmitter {
   const tempChunks = this.p2pTempChunks.get(chunk.uploadId) || [];
   tempChunks[chunk.chunkId] = chunk;
   this.p2pTempChunks.set(chunk.uploadId, tempChunks);
-
-  if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) {
-   record.status = FileUploadRecordStatus.FINISHED;
-  }
-
+  if (record.chunksReceived.length === Math.ceil(record.fileSize / record.chunkSize)) record.status = FileUploadRecordStatus.FINISHED;
   await this.patchRecord(record.id, record);
-
   return { record, chunk };
  }
 
  async getRecord(id: string) {
   const record = this.records.get(id);
-
-  if (record) {
-   return record;
-  }
-
+  if (record) return record;
   // handle not found in memory
-  if (!FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
-   throw new Error('Record not found');
-  }
-  if (typeof this._findRecordOnServer !== 'function') {
-   throw new Error('findRecordOnServer not set');
-  }
-
+  if (!FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) throw new Error('Record not found');
+  if (typeof this._findRecordOnServer !== 'function') throw new Error('findRecordOnServer not set');
   // proceed to find record in database
   const foundRecord = await this._findRecordOnServer(id);
-
-  if (!foundRecord) {
-   throw new Error('Record not found on server');
-  }
-
+  if (!foundRecord) throw new Error('Record not found on server');
   this.records.set(foundRecord.id, foundRecord);
   return foundRecord;
  }
 
  async patchRecord(id: string, _data: Partial<FileUploadRecord>) {
   const data = _cloneDeep(_data);
-
   // rm data that we should not update
   delete data.id;
   delete data.updated;
-
   // handle persistence
   if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
-   if (typeof this._patchRecordOnServer !== 'function') {
-    throw new Error('updateRecordOnServer not set');
-   }
-
+   if (typeof this._patchRecordOnServer !== 'function') throw new Error('updateRecordOnServer not set');
    await this._patchRecordOnServer(id, data);
   }
-
   // assemble updated record in case of db defaults/updates
   const currentRecord = await this.getRecord(id);
   const updatedRecord = { ...currentRecord, ...data, id } as FileUploadRecord;
-
   // update memory if set
-  if (this.records.has(id)) {
-   this.records.set(id, updatedRecord);
-  }
-
+  if (this.records.has(id)) this.records.set(id, updatedRecord);
   return updatedRecord;
  }
 
  async createRecord(data: FileUploadRecord) {
   if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE) {
-   if (typeof this._createRecordOnServer !== 'function') {
-    throw new Error('createRecordOnServer not set');
-   }
-
+   if (typeof this._createRecordOnServer !== 'function') throw new Error('createRecordOnServer not set');
    await this._createRecordOnServer(data);
   }
-
   let record = { ...data } as FileUploadRecord;
   if (FILE_TRANSFER_SETTINGS.ENABLE_PERSISTENCE && this._findRecordOnServer) {
    // get updated data from server (in case of db defaults)
    const dbRecord = await this._findRecordOnServer(data.id);
    record = { ...record, ...dbRecord };
   }
-
   this.records.set(data.id, record);
   return data;
  }
@@ -221,7 +188,6 @@ class FileTransferManager extends EventEmitter {
   const blob = file.slice(offsetBytes, offsetBytes + chunkSize);
   // blob to array
   const buffer = await blob.bytes();
-
   const chunk = {
    chunkId: Math.floor(offsetBytes / chunkSize),
    uploadId,
@@ -229,18 +195,13 @@ class FileTransferManager extends EventEmitter {
    // @ts-ignore
    data: buffer.toBase64()
   };
-
   return { chunk };
  }
 
  async getFileChunkP2P(uploadId: string, chunkId: number) {
   const tempChunks = this.p2pTempChunks.get(uploadId) || [];
   const chunk = tempChunks[chunkId];
-
-  if (!chunk) {
-   throw new DownloadChunkP2PNotFoundError('Chunk not found');
-  }
-
+  if (!chunk) throw new DownloadChunkP2PNotFoundError('Chunk not found');
   return { chunk };
  }
 
@@ -251,7 +212,6 @@ class FileTransferManager extends EventEmitter {
     this.records.delete(record.id);
     continue;
    }
-
    if ([FileUploadRecordStatus.BEGUN, FileUploadRecordStatus.UPLOADING, FileUploadRecordStatus.PAUSED].includes(record.status)) {
     // check record.upload time for timeout
     const now = Date.now();
@@ -261,18 +221,12 @@ class FileTransferManager extends EventEmitter {
     Log.debug('checking time record', record.updated.toTimeString());
     let timeout = null;
     if (record.type === FileUploadRecordType.SERVER) {
-     if (record.status === FileUploadRecordStatus.PAUSED) {
-      timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
-     } else {
-      timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
-     }
+     if (record.status === FileUploadRecordStatus.PAUSED) timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
+     else timeout = FILE_TRANSFER_SETTINGS.SERVER_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
     }
     if (record.type === FileUploadRecordType.P2P) {
-     if (record.status === FileUploadRecordStatus.PAUSED) {
-      timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
-     } else {
-      timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
-     }
+     if (record.status === FileUploadRecordStatus.PAUSED) timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.STATUS_PAUSED_TIMEOUT_ERROR_MS;
+     else timeout = FILE_TRANSFER_SETTINGS.P2P_TRANSFER.DEFAULT_TIMEOUT_ERROR_MS;
     }
     Log.debug('Checking record', record.id, 'for diff', diff, 'timeout', timeout);
     if (timeout && diff > timeout) {
