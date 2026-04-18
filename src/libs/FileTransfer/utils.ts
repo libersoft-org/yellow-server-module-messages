@@ -69,7 +69,16 @@ export function pickFileUploadRecordFields<K extends keyof FileUploadRecord>(rec
 }
 
 export function makeFilePath(record: FileUploadRecord): string {
- return record.fileFolder + '/' + record.fileName;
+ if (!record.fileFolder || !record.fileName) {
+  throw new Error('makeFilePath: fileFolder and fileName are required');
+ }
+ const root = path.resolve(FILE_TRANSFER_SETTINGS.ROOT_UPLOADS_DIR);
+ const candidate = path.resolve(record.fileFolder, record.fileName);
+ const rel = path.relative(root, candidate);
+ if (rel.startsWith('..') || path.isAbsolute(rel)) {
+  throw new Error('makeFilePath: path traversal detected');
+ }
+ return candidate;
 }
 
 export function makeTempFilePath(record: FileUploadRecord): string {
