@@ -56,6 +56,10 @@ export class ApiClient extends ModuleApiBase {
     reqUserSession: true
    },
    upload_get: { method: this.upload_get.bind(this), reqUserSession: true },
+   upload_commit: {
+    method: this.upload_commit.bind(this),
+    reqUserSession: true
+   },
    upload_cancel: {
     method: this.upload_cancel.bind(this),
     reqUserSession: true
@@ -278,6 +282,77 @@ export class ApiClient extends ModuleApiBase {
    allowedRecords,
    disallowedRecords
   };
+ }
+
+ /**
+  * Publishes the whole-file digest once the last chunk has landed.
+  *
+  * The digest used to travel in `upload_begin`, which forced the sender to read the entire file
+  * before the first chunk could move - a second full pass over, say, a 20 GB file, with the transfer
+  * stalled until it finished. Committing afterwards lets the sender hash the chunks it is already
+  * reading and publish the result at the end.
+  *
+  * Set-once on purpose: the sender is the only party allowed to state what the file is, and only
+  * once, so a hijacked session cannot re-point a delivered attachment at different content.
+  */
+ async upload_commit(c) {
+  const { uploadId, fileDigest } = c.params || {};
+  if (!uploadId) return { error: 'UPLOAD_ID_MISSING', message: 'Upload ID is missing' };
+  if (typeof fileDigest !== 'string' || !/^[0-9a-f]{64}$/.test(fileDigest)) {
+   return {
+    error: 'INVALID_FILE_DIGEST',
+    message: 'File digest must be a hex-encoded SHA-256'
+   };
+  }
+  let record: FileUploadRecord;
+  try {
+   record = await this.app.fileTransferManager.getRecord(uploadId);
+  } catch (err) {
+   Log.error('upload_commit: record not found', err);
+   return { error: 'RECORD_NOT_FOUND', message: 'Record not found' };
+  }
+  if (record.fromUserId !== c.userID) {
+   return {
+    error: 'NOT_ALLOWED',
+    message: 'Only the sender can commit this upload'
+   };
+  }
+  const existingDigest = (record.metadata as any)?.fileDigest;
+  if (typeof existingDigest === 'string' && existingDigest.length > 0) {
+   // A retried commit carrying the same digest is a no-op, not a conflict.
+   if (existingDigest === fileDigest) return { error: false, message: 'Upload already committed' };
+   return {
+    error: 'DIGEST_ALREADY_SET',
+    message: 'This upload already has a different digest'
+   };
+  }
+  // An empty file sends no chunks at all, so nothing has moved it out of BEGUN and, for a server
+  // transfer, nothing has created the file. The commit is the only point where that can happen.
+  const isEmpty = record.fileSize === 0;
+  if (record.status !== FileUploadRecordStatus.FINISHED && !(isEmpty && (record.status === FileUploadRecordStatus.BEGUN || record.status === FileUploadRecordStatus.UPLOADING))) {
+   return {
+    error: 'UPLOAD_NOT_FINISHED',
+    message: 'Cannot commit an upload in status ' + record.status
+   };
+  }
+  if (isEmpty && record.status !== FileUploadRecordStatus.FINISHED) {
+   try {
+    await this.app.fileTransferManager.finishEmptyUpload(record);
+   } catch (err) {
+    Log.error('upload_commit: could not finalize an empty upload', err);
+    return {
+     error: 'COMMIT_FAILED',
+     message: 'Could not finalize the upload'
+    };
+   }
+  }
+  record = await this.app.fileTransferManager.patchRecord(record.id, {
+   status: FileUploadRecordStatus.FINISHED,
+   metadata: { ...((record.metadata as object) || {}), fileDigest }
+  });
+  // Receivers refuse an attachment with no digest, so they have to be told it exists.
+  await this.send_upload_update_notification({ record });
+  return { error: false, message: 'Upload committed' };
  }
 
  async upload_cancel(c) {

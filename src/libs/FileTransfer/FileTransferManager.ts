@@ -1,6 +1,7 @@
 import { makeFilePath, makeP2PFileUploadRecord, makeServerFileUploadRecord, makeTempFilePath } from './utils.ts';
 import { FileUploadBeginData, type FileUploadChunk, FileUploadRecordErrorType, FileUploadRecord, FileUploadRecordStatus, FileUploadRecordType } from './types.ts';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { newLogger } from 'yellow-server-common';
 import { DownloadChunkP2PNotFoundError } from './errors.ts';
@@ -61,6 +62,24 @@ class FileTransferManager extends EventEmitter {
    Log.error('Error creating record', er);
   }
   return record;
+ }
+
+ /**
+  * Completes a zero-byte upload. No chunk is ever sent for one, so `processChunk` never runs and,
+  * for a server transfer, the destination file is never created - the record just sat in BEGUN
+  * until the cleanup loop timed it out. Called from `upload_commit`.
+  */
+ async finishEmptyUpload(record: FileUploadRecord) {
+  if (record.fileSize !== 0) throw new Error('finishEmptyUpload called for a non-empty upload');
+  if (record.type === FileUploadRecordType.SERVER) {
+   const dst = makeFilePath(record);
+   await fs.mkdir(path.dirname(dst), { recursive: true });
+   await fs.writeFile(dst, '');
+  }
+  return await this.patchRecord(record.id, {
+   status: FileUploadRecordStatus.FINISHED,
+   chunksReceived: []
+  });
  }
 
  async processChunk(chunk: FileUploadChunk) {
